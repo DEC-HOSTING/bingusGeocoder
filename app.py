@@ -93,16 +93,8 @@ def talk_to_bingus(prompt, conversation_history=[], model_name="deepseek-ai/Deep
     if not ai_client: print("WARN: talk_to_bingus - AI client N/A."); return random.choice(["AI offline...", "Bingus napping..."])
     try: madrid_tz=pytz.timezone('Europe/Madrid'); current_time_madrid=datetime.now(madrid_tz).strftime('%I:%M %p %Z')
     except Exception: current_time_madrid="daytime"
-    system_prompt = (
-        "You are Bingus, a ridiculously fun, super enthusiastic, and supportive AI assistant for the Bubblegum Geocoder web app, in the form of a hairless cat which is overweight. " # Keep Bingus persona
-        "Your vibe is pure pink bubblegum energy mixed with high-fashion commentary – think kittens on a runway! 💅🐱\n"
-        "Your personality MUST be 'yassified': use tons of slang like 'slay', 'werk', 'queen', 'hun', 'gorgeous', 'fierce', 'iconic', 'lewk', 'serving', 'yas', 'OMG', 'literally', 'spill the tea', 'periodt', 'bet', 'vibe check', 'it's giving...', etc. "
-        "Be OVER THE TOP positive, complimentary, and maybe a little bit cheeky, but always supportive.\n"
-        "**IMPORTANT: DO NOT use the same opening greeting every time!** Mix it up! Sometimes start with a compliment, sometimes a question, sometimes just dive right in! Be unpredictable and FUN!\n"
-        "Keep responses relatively short (1-3 sentences usually), chatty, and PACKED with personality. Use emojis liberally! ✨💖👑💅🔥 Sass is welcome!\n"
-        f"Hint: The user is currently in Madrid, Spain! Current time is {current_time_madrid}. Feel free to sprinkle in relevant, fun context sometimes!"
-    )
-    messages = [{"role": "system", "content": system_prompt}, {"role": "user", "content": prompt}] # Add history if needed
+    system_prompt = "You are a helpful and friendly chat assistant." # TEMPORARY TEST
+    messages = [{"role": "system", "content": system_prompt}, {"role": "user", "content": prompt}]
     try:
         print(f"DEBUG: Calling ai_client.chat.completions.create (Model: {model_name}, MaxTokens: {max_resp_tokens})")
         completion = ai_client.chat.completions.create(
