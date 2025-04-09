@@ -21,13 +21,12 @@
 </head>
 <body class="flex-grow flex items-start sm:items-center justify-center p-2 sm:p-4 md:p-8 lg:p-12 bg-gradient-to-br from-soft-pink via-candy-pink to-light-purple text-gray-800 font-sans">
 
-    <div class="bg-white bg-opacity-90 backdrop-blur-lg rounded-2xl md:rounded-3xl shadow-glow p-3 sm:p-4 md:p-8 w-full max-w-7xl flex flex-col md:flex-row gap-4 md:gap-8 lg:gap-12 pt-6 sm:pt-4 md:pt-8"> {/* Removed my-auto, added pt-6 sm:pt-0 */}
+    <div class="bg-white bg-opacity-90 backdrop-blur-lg rounded-2xl md:rounded-3xl shadow-glow p-3 sm:p-4 md:p-8 w-full max-w-7xl flex flex-col md:flex-row gap-4 md:gap-8 lg:gap-12 pt-6 sm:pt-4 md:pt-8">
 
         <div class="flex-1 w-full md:max-w-md lg:max-w-lg mx-auto">
             <header class="text-center mb-4 md:mb-6">
-                 {/* Removed fixed height classes (h-XX) to maintain aspect ratio */}
                 <img src="{{ url_for('static', filename='images/kitten_icon.png') }}" alt="Cute Kitten Icon"
-                     class="w-24 sm:w-32 md:w-40 mx-auto mb-2 md:mb-3 animate-bounce-in object-contain"> {/* Kept width, added object-contain */}
+                     class="w-24 sm:w-32 md:w-40 mx-auto mb-2 md:mb-3 animate-bounce-in object-contain">
                 <h1 class="text-3xl sm:text-4xl md:text-5xl font-display text-bubblegum-pink drop-shadow-md mb-1 md:mb-2">
                     Bingus Geocoder</h1>
                 <p class="text-base sm:text-lg md:text-xl text-deep-purple">Get coordinates, gorgeous!</p>
@@ -97,7 +96,6 @@
     <div id="random-popup-overlay" class="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden opacity-0 transition-opacity duration-300 ease-out cursor-pointer" aria-modal="true" role="dialog">
         <div id="random-popup-modal" class="bg-gradient-to-br from-white via-soft-pink to-candy-pink p-6 rounded-3xl shadow-glow max-w-md w-full text-center relative transform scale-95 opacity-0 transition-all duration-300 ease-out" style="cursor: default;" onclick="event.stopPropagation();">
             <button id="close-popup-button-x" class="absolute top-2 right-3 text-gray-500 hover:text-bubblegum-pink text-3xl font-bold transition leading-none p-1" aria-label="Close random pop-up">&times;</button>
-             {/* Removed fixed height here too */}
             <img src="{{ url_for('static', filename='images/kitten_icon.png') }}" alt="Kitten Icon" class="w-24 md:w-30 mx-auto mb-4 animate-bounce-in object-contain">
             <p id="random-popup-message" class="text-deep-purple text-lg font-semibold mb-6 px-4">A wild sassy message appears!</p>
             <button id="close-popup-button" class="bg-bubblegum-pink text-white px-6 py-2 rounded-full font-semibold hover:scale-105 transform transition duration-200 shadow-md">Got it, queen!</button>
