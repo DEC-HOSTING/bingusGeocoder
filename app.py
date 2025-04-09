@@ -195,7 +195,8 @@ def process_excel():
 
             if lat is not None and lon is not None and status=="Failed": status="Success(Primary)"
             results.append({'latitude':lat,'longitude':lon}); geocoding_statuses.append(status); print(f"DEBUG(R{row_num}): Appended: Status:'{status}'")
-            if status.startswith("Success"): success_count+=1; else: fail_count+=1
+            if status.startswith("Success"): success_count += 1 
+            else: fail_count += 1
         # --- End Geocoding Loop ---
 
         print("="*20 + " Geocoding End " + "="*24); print(f"INFO: Geocoding done. Success:{success_count}, Fail:{fail_count}, AI Attempts:{ai_assist_attempt}, AI Success:{ai_assist_success}")
