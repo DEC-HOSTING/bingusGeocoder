@@ -4,9 +4,12 @@
     "description": "A cute geocoding application with bubblegum aesthetics",
     "scripts": {
       "test": "echo \"Error: no test specified\" && exit 1",
-      "build:css": "tailwindcss -i ./static/css/input.css -o ./static/css/style.css --minify",
+      "clean:dist": "rm -rf ./dist",
+      "build:css": "tailwindcss -i ./static/css/input.css -o ./dist/static/css/style.css --minify",
+      "copy:assets": "mkdir -p ./dist/static/js && cp -r ./static/js/. ./dist/static/js && mkdir -p ./dist/static/images && cp -r ./static/images/. ./dist/static/images && mkdir -p ./dist/static/fonts && cp -r ./static/fonts/. ./dist/static/fonts",
       "watch:css": "tailwindcss -i ./static/css/input.css -o ./static/css/style.css --watch",
-      "start": "flask run"
+      "start": "flask run",
+      "vercel-build": "npm run clean:dist && npm run build:css && npm run copy:assets"
     },
     "keywords": [
       "geocoding",
