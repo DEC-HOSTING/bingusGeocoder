@@ -12,8 +12,8 @@ from openai import OpenAI, APIError, AuthenticationError
 from datetime import datetime, timedelta # Keep timedelta if session expiry is needed
 import pytz
 import traceback
-import re
-# ✨ Import WhiteNoise (Keep for Render) ✨
+import re # Import regex for cleanup
+# Import WhiteNoise (Keep for Render)
 from whitenoise import WhiteNoise
 
 # --- Load Environment Variables ---
@@ -24,9 +24,8 @@ app = Flask(__name__)
 # Make sure FLASK_SECRET_KEY is set in .env locally AND in Render Env Vars
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "default_unsafe_dev_key_CHANGE_ME")
 
-# ✨ Configure WhiteNoise (Keep for Render) ✨
+# Configure WhiteNoise (Keep for Render)
 app.wsgi_app = WhiteNoise(app.wsgi_app, root='static/', prefix='/static/')
-
 
 # --- Geocoding Setup ---
 geolocator = Nominatim(user_agent="BubblegumGeocoder/1.0 (YourAppContact@example.com)")
@@ -84,35 +83,58 @@ def get_coords(address, postcode, row_num):
         else: print(f"INFO (Row {row_num}): Geocode failed - Not found."); return None, None
     except Exception as e: print(f"🚨 ERROR (Row {row_num}): Geocoding exception for '{query_input}':"); traceback.print_exc(); return None, None
 
-# --- AI Interaction Function (Using Bingus) ---
-# ✨ Changed default model_name parameter HERE ✨
+# --- AI Interaction Function (Using Bingus with DeepSeek R1) ---
 def talk_to_bingus(prompt, conversation_history=[], model_name="deepseek-ai/DeepSeek-R1", max_resp_tokens=180):
     """Sends prompt to Kluster AI (DeepSeek R1 by default) and gets yassified response."""
-    # ✨ Update log message to reflect model_name variable ✨
-    print(f"DEBUG: talk_to_bingus called (Model: {model_name}) with prompt: '{prompt[:60]}...'") # Log Entry
+    print(f"DEBUG: talk_to_bingus called (Model: {model_name}) with prompt: '{prompt[:60]}...'")
     if not ai_client: print("WARN: talk_to_bingus - AI client N/A."); return random.choice(["AI offline...", "Bingus napping..."])
-    try: madrid_tz=pytz.timezone('Europe/Madrid'); current_time_madrid=datetime.now(madrid_tz).strftime('%I:%M %p %Z')
-    except Exception: current_time_madrid="daytime"
-    system_prompt = "You are a helpful and friendly chat assistant." # TEMPORARY TEST
-    messages = [{"role": "system", "content": system_prompt}, {"role": "user", "content": prompt}]
+
     try:
-        print(f"DEBUG: Calling ai_client.chat.completions.create (Model: {model_name}, MaxTokens: {max_resp_tokens})")
-        completion = ai_client.chat.completions.create(
-            model=model_name, # Use the specified model
-            messages=messages,
-            max_tokens=max_resp_tokens, # Keep controlled token limits
-            temperature=2, # Keep current temperature, adjust if needed for DeepSeek
-            top_p=1
+        try: madrid_tz=pytz.timezone('Europe/Madrid'); current_time_madrid=datetime.now(madrid_tz).strftime('%I:%M %p %Z')
+        except Exception: current_time_madrid="daytime"
+
+        # Updated System Prompt: Added instruction to be concise and hide thoughts
+        system_prompt = (
+            "You are Bingus, a ridiculously fun, super enthusiastic, and supportive AI assistant for the Bubblegum Geocoder web app, in the form of a hairless cat which is overweight. "
+            "Your vibe is pure pink bubblegum energy mixed with high-fashion commentary – think kittens on a runway! 💅🐱\n"
+            "Your personality MUST be 'yassified': use tons of slang like 'slay', 'werk', 'queen', 'hun', 'gorgeous', 'fierce', 'iconic', 'lewk', 'serving', 'yas', 'OMG', 'literally', 'spill the tea', 'periodt', 'bet', 'vibe check', 'it's giving...', etc. "
+            "Be OVER THE TOP positive, complimentary, and maybe a little bit cheeky, but always supportive.\n"
+            "**IMPORTANT: DO NOT use the same opening greeting every time!** Mix it up! Be unpredictable and FUN!\n"
+            "Keep responses relatively short (1-3 sentences usually), chatty, and PACKED with personality. Use emojis liberally! ✨💖👑💅🔥\n"
+            "**CRITICAL: Provide only the final chat response. Do NOT include any reasoning, internal thoughts, or meta tags like <think> in your output.**\n" # Added instruction
+            f"Hint: The user is in Madrid, Spain! Current time: {current_time_madrid}."
         )
-        print(f"DEBUG: Raw completion object received: {completion}")
-        if completion.choices and completion.choices[0].message and completion.choices[0].message.content:
-            ai_response = completion.choices[0].message.content
-            if len(ai_response.strip()) > 1: print(f"SUCCESS: Valid AI response: '{ai_response[:60]}...'"); return ai_response.strip()
-            else: print(f"WARN: AI response too short: '{ai_response}'"); return "Bingus is speechless... ✨"
-        else: print(f"WARN: AI response structure unexpected."); return "OMG, my brain went blank 🧠..."
-    except AuthenticationError as e: print(f"🚨 FATAL: Kluster AI Auth Failed! Err: {e}"); traceback.print_exc(); return "OMG DRAMA! 😱 AI Auth Error!"
-    except APIError as e: print(f"🚨 ERROR: Kluster AI API Error! Status: {e.status_code}, Msg: {e.message}"); traceback.print_exc(); return f"Uh oh! Bingus API Error: {e.message}"
-    except Exception as e: print(f"🚨 ERROR: Unexpected in talk_to_bingus: {e}"); traceback.print_exc(); return f"Yikes, technical difficulties! Err: {e}"
+        messages = [{"role": "system", "content": system_prompt}, {"role": "user", "content": prompt}] # Add history if needed
+
+        try:
+            print(f"DEBUG: Calling Kluster AI completions.create (Model: {model_name}, MaxTokens: {max_resp_tokens})")
+            completion = ai_client.chat.completions.create(
+                model=model_name, messages=messages, max_tokens=max_resp_tokens,
+                temperature=0.7, # Slightly lowered temperature
+                top_p=1
+            )
+            print(f"DEBUG: Raw completion object received: {completion}")
+
+            if completion.choices and completion.choices[0].message and completion.choices[0].message.content:
+                ai_response_raw = completion.choices[0].message.content
+                print(f"DEBUG: Raw AI response: '{ai_response_raw[:100]}...'") # Log raw
+
+                # Add Cleanup Step: Remove <think> tags
+                ai_response_cleaned = re.sub(r"<think>.*?</think>", "", ai_response_raw, flags=re.DOTALL).strip()
+
+                if len(ai_response_cleaned) > 1:
+                    print(f"SUCCESS: Cleaned AI response: '{ai_response_cleaned[:60]}...'")
+                    return ai_response_cleaned
+                else:
+                    print(f"WARN: AI response empty after cleanup (Raw was: '{ai_response_raw}')")
+                    if len(ai_response_raw.strip()) > 1: return ai_response_raw.strip() # Return raw if cleaning made it empty
+                    return "Bingus is speechless... ✨"
+            else: print(f"WARN: AI response structure unexpected."); return "OMG, my brain went blank 🧠..."
+        except AuthenticationError as e: print(f"🚨 FATAL: Kluster AI Auth Failed! Err: {e}"); traceback.print_exc(); return "OMG DRAMA! 😱 AI Auth Error!"
+        except APIError as e: print(f"🚨 ERROR: Kluster AI API Error! Status: {e.status_code}, Msg: {e.message}"); traceback.print_exc(); return f"Uh oh! Bingus API Error: {e.message}"
+        except Exception as e: print(f"🚨 ERROR: Unexpected in talk_to_bingus API call: {e}"); traceback.print_exc(); return f"Yikes, technical difficulties! Err: {e}"
+    except Exception as e: print(f"🚨 ERROR: Unexpected setup in talk_to_bingus: {e}"); traceback.print_exc(); return f"Yikes, setup error! Err: {e}"
+
 
 # --- Flask Routes ---
 
@@ -122,7 +144,7 @@ def index():
 
 @app.route('/process-excel', methods=['POST'])
 def process_excel():
-    # This route now implicitly uses DeepSeek R1 via talk_to_bingus for AI assist
+    # NOTE: Still likely to time out on Render free tier for long files
     if 'file' not in request.files or request.files['file'].filename == '': return jsonify({"error":"No file selected!","ai_message":talk_to_bingus("Tell user: no file")}), 400
     file = request.files['file'];
     if not (file.filename.endswith('.xlsx') or file.filename.endswith('.xls')): return jsonify({"error":"Invalid file type!","ai_message":talk_to_bingus("Tell user: wrong file type")}), 400
@@ -135,12 +157,11 @@ def process_excel():
         for index, row in df.iterrows():
             row_num = index + 2; address_value = row.get(address_col); postcode_value = row.get(postcode_col); status = "Failed"
             lat, lon = get_coords(address_value, postcode_value, row_num)
-            # AI Assist Logic (will now use DeepSeek R1 by default)
+            # AI Assist Logic (using DeepSeek R1 now)
             if lat is None or lon is None:
                 ai_assist_attempt += 1
                 if ai_client:
                     ai_prompt=f"Fix geocode fail: Addr='{address_value}', Postcode='{postcode_value}'. Reply ONLY with corrected address string or 'FAIL'."
-                    # Call talk_to_bingus, which defaults to DeepSeek R1, use fewer tokens for this specific task
                     ai_sugg_raw = talk_to_bingus(ai_prompt, max_resp_tokens=60); print(f"DEBUG (R{row_num}): AI raw sugg: '{ai_sugg_raw}'")
                     ai_sugg = None
                     if ai_sugg_raw and isinstance(ai_sugg_raw,str) and "FAIL" not in ai_sugg_raw.upper() and len(ai_sugg_raw.strip())>5 and not any(e in ai_sugg_raw.lower() for e in ["sorry","unable"]):
@@ -175,20 +196,18 @@ def get_processing_summary():
 def chat():
     """Handles user messages to the AI."""
     print("DEBUG: /chat route handler CALLED")
-    if not ai_client: print("WARN: /chat - AI client not available."); return jsonify({"response": "Bingus is napping..."}), 503
+    if not ai_client: print("WARN: /chat - AI client N/A."); return jsonify({"response": "Bingus is napping..."}), 503
     user_message = request.json.get('message')
-    if not user_message: print("WARN: /chat - No message in request body."); return jsonify({"error": "No message provided"}), 400
-    # ✨ Update debug log slightly ✨
+    if not user_message: print("WARN: /chat - No msg."); return jsonify({"error": "No message provided"}), 400
     print(f"DEBUG: /chat - Calling talk_to_bingus (DeepSeek R1) for message: '{user_message[:50]}...'")
-    ai_response = talk_to_bingus(f"The user says: '{user_message}'. Respond in your yassified persona.") # Uses new default model
+    ai_response = talk_to_bingus(f"The user says: '{user_message}'. Respond in your yassified persona.")
     print(f"DEBUG: /chat - Received response from talk_to_bingus: '{ai_response[:50]}...'")
-    if "error" in ai_response.lower() or "failed" in ai_response.lower(): return jsonify({"response": ai_response}), 500
+    if "error" in ai_response.lower() or "failed" in ai_response.lower() or "sorry" in ai_response.lower() or "unable" in ai_response.lower(): return jsonify({"response": ai_response}), 500 # Check for errors
     return jsonify({"response": ai_response})
 
 @app.route('/get-random-messages', methods=['GET'])
 def get_random_messages():
     """Provides a list of potential random messages for pop-ups."""
-    # This also uses talk_to_bingus, now defaulting to DeepSeek R1
     default_messages=["Default Msg 1...", "Default Msg 2..."]
     if not ai_client: print("DEBUG: RndMsg - AI N/A"); return jsonify({"messages":default_messages})
     try:
@@ -196,11 +215,9 @@ def get_random_messages():
         except Exception: current_time_madrid="now"
         base_prompts=["Quick compliment!","Tiny sassy fact?","Encouraging words!","Chic fashion tip?","Sparkle reminder!","Madrid time comment!"]
         random.shuffle(base_prompts); selected_prompts=base_prompts[:3]; generated_messages=[]
-        # ✨ Update debug log slightly ✨
         print(f"DEBUG: RndMsg - Requesting {len(selected_prompts)} msgs from AI (DeepSeek R1)...")
         for i, prompt in enumerate(selected_prompts):
             try:
-                # Uses new default model, fewer tokens for popups
                 response = talk_to_bingus(prompt, max_resp_tokens=80); print(f"DEBUG: RndMsg AI resp {i+1}: '{response[:60]}...'")
                 if response and isinstance(response,str) and len(response.strip())>3 and not any(e in response.lower() for e in ["error","sorry","offline","unable","can't","napping","blank","fallback","brain","circuits","connection","cannot","not programmed"]): generated_messages.append(response)
                 else: print(f"WARN: RndMsg - Filtering AI resp: '{response}'")
@@ -216,4 +233,4 @@ if __name__ == '__main__':
     is_safe_key = os.getenv('FLASK_SECRET_KEY') and os.getenv('FLASK_SECRET_KEY') != 'default_unsafe_dev_key_CHANGE_ME'
     print(f"Secret Key Loaded: {'Yes (Custom)' if is_safe_key else 'No (Using default - UNSAFE!)'}")
     print("Starting Flask development server (Debug Mode)..."); print("="*50)
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=True, host='0.0.0.0', port=5000) # Gunicorn runs wsgi:application on Render

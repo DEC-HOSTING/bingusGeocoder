@@ -4,117 +4,93 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>✨ Bingus Geocoder ✨</title>
-    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
     <link rel="icon" href="{{ url_for('static', filename='images/kitten_icon.ico') }}" type="image/x-icon">
+    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
-        #chat-messages::-webkit-scrollbar { width: 8px; }
-        #chat-messages::-webkit-scrollbar-track { background: #fde6f4; border-radius: 4px;}
-        #chat-messages::-webkit-scrollbar-thumb { background: #f9a8d4; border-radius: 4px;}
+        #chat-messages::-webkit-scrollbar { width: 6px; }
+        #chat-messages::-webkit-scrollbar-track { background: #fde6f4; border-radius: 3px;}
+        #chat-messages::-webkit-scrollbar-thumb { background: #f9a8d4; border-radius: 3px;}
         #chat-messages::-webkit-scrollbar-thumb:hover { background: #ff77cc; }
         html, body { height: 100%; margin: 0; }
-        body { display: flex; flex-direction: column; }
+        body { display: flex; flex-direction: column; min-height: 100vh;}
         html { scroll-behavior: smooth; }
     </style>
 </head>
-<body class="flex-grow flex items-center justify-center p-6 md:p-12 bg-gradient-to-br from-soft-pink via-candy-pink to-light-purple text-gray-800 font-sans">
+<body class="flex-grow flex items-center justify-center p-2 sm:p-4 md:p-8 lg:p-12 bg-gradient-to-br from-soft-pink via-candy-pink to-light-purple text-gray-800 font-sans">
 
-    <div class="bg-white bg-opacity-90 backdrop-blur-lg rounded-3xl shadow-glow p-8 w-full flex flex-col md:flex-row gap-12">
+    <div class="bg-white bg-opacity-90 backdrop-blur-lg rounded-2xl md:rounded-3xl shadow-glow p-3 sm:p-4 md:p-8 w-full max-w-7xl flex flex-col md:flex-row gap-4 md:gap-8 lg:gap-12">
 
-        <div class="flex-1 md:max-w-lg lg:max-w-xl mx-auto">
-            <header class="text-center mb-8">
-                <img src="{{ url_for('static', filename='images/kitten_icon.png') }}" alt="Cute Kitten Icon" class="w-40 h-50 mx-auto mb-3 animate-bounce-in">
-                <h1 class="text-5xl font-display text-bubblegum-pink drop-shadow-md mb-2">Bingus Geocoder</h1>
-                <p class="text-deep-purple text-xl">Get those coordinates, gorgeous!</p>
+        <div class="flex-1 w-full md:max-w-md lg:max-w-lg mx-auto">
+            <header class="text-center mb-4 md:mb-6">
+                <img src="{{ url_for('static', filename='images/kitten_icon.png') }}" alt="Cute Kitten Icon" class="w-24 h-24 sm:w-32 sm:h-32 md:w-40 md:h-40 mx-auto mb-2 md:mb-3 animate-bounce-in">
+                <h1 class="text-3xl sm:text-4xl md:text-5xl font-display text-bubblegum-pink drop-shadow-md mb-1 md:mb-2">Bingus Geocoder</h1>
+                <p class="text-base sm:text-lg md:text-xl text-deep-purple">Get coordinates, gorgeous!</p>
             </header>
 
-            {% with messages = get_flashed_messages(with_categories=true) %}
-              {% if messages %}
-                <div class="mb-4">
-                {% for category, message in messages %}
-                  <div class="p-3 rounded-lg text-center font-semibold {{ 'bg-red-200 text-red-800' if category == 'error' else 'bg-green-200 text-green-800' }}">
-                    {{ message }}
-                  </div>
-                {% endfor %}
-                </div>
-              {% endif %}
-            {% endwith %}
+            {% with messages = get_flashed_messages(with_categories=true) %} {% if messages %} <div class="mb-4"> {% for category, message in messages %} <div class="p-2 md:p-3 rounded-lg text-center font-semibold text-sm md:text-base {{ 'bg-red-200 text-red-800' if category == 'error' else 'bg-green-200 text-green-800' }}">{{ message }}</div> {% endfor %} </div> {% endif %} {% endwith %}
 
-            <form id="upload-form" class="space-y-6" enctype="multipart/form-data">
-                <label for="file-input" class="block text-xl font-semibold text-gray-700 mb-2 text-center">Drop your Excel file (.xlsx/.xls) below, superstar!</label>
+            <form id="upload-form" class="space-y-4 md:space-y-6" enctype="multipart/form-data">
+                <label for="file-input" class="block text-base sm:text-lg md:text-xl font-semibold text-gray-700 mb-2 text-center">Drop your Excel file below!</label>
                 <div class="flex items-center justify-center w-full">
-                    <label for="file-input" class="flex flex-col items-center justify-center w-full h-52 border-4 border-candy-pink border-dashed rounded-2xl cursor-pointer bg-soft-pink hover:bg-opacity-70 transition duration-300 ease-in-out hover:border-bubblegum-pink">
-                        <div class="flex flex-col items-center justify-center pt-5 pb-6">
-                             <img src="{{ url_for('static', filename='images/kitten1.png') }}" alt="Cute Kitten Placeholder" class="w-24 h-24 mb-3 rounded-full object-cover opacity-80 shadow-md">
-                            <p class="mb-2 text-md text-deep-purple"><span class="font-semibold">Click to upload</span> or drag and drop</p>
-                            <p id="file-name-display" class="text-sm text-gray-600 px-2 text-center">No file chosen... yet!</p>
+                    <label for="file-input" class="flex flex-col items-center justify-center w-full h-48 sm:h-52 border-4 border-candy-pink border-dashed rounded-2xl cursor-pointer bg-soft-pink hover:bg-opacity-70 transition duration-300 ease-in-out hover:border-bubblegum-pink">
+                        <div class="flex flex-col items-center justify-center pt-4 pb-5 px-2">
+                             <img src="{{ url_for('static', filename='images/kitten1.png') }}" alt="Cute Kitten Placeholder" class="w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 mb-2 md:mb-3 rounded-full object-cover opacity-80 shadow-md">
+                            <p class="mb-1 md:mb-2 text-sm sm:text-base md:text-md text-deep-purple"><span class="font-semibold">Click to upload</span> or drag & drop</p>
+                            <p id="file-name-display" class="text-xs sm:text-sm text-gray-600 text-center">No file chosen...</p>
                         </div>
                         <input id="file-input" type="file" class="hidden" name="file" accept=".xlsx, .xls" required>
                     </label>
                 </div>
-                <button type="submit" id="submit-button" class="w-full bg-gradient-to-r from-bubblegum-pink to-light-purple hover:from-opacity-90 hover:to-opacity-90 text-white font-bold py-4 px-6 rounded-full transition duration-300 ease-in-out focus:outline-none focus:ring-4 focus:ring-offset-2 focus:ring-candy-pink shadow-lg text-xl transform hover:scale-105">
-                    ✨ Let's Process! ✨
+                <button type="submit" id="submit-button" class="w-full bg-gradient-to-r from-bubblegum-pink to-light-purple hover:from-opacity-90 hover:to-opacity-90 text-white font-bold py-3 md:py-4 px-6 rounded-full transition duration-300 ease-in-out focus:outline-none focus:ring-4 focus:ring-offset-2 focus:ring-candy-pink shadow-lg text-base sm:text-lg md:text-xl transform hover:scale-105">
+                    ✨ Process! ✨
                 </button>
             </form>
 
-            <div id="progress-indicator" class="mt-8 w-full max-w-md mx-auto hidden">
-                <p class="text-deep-purple font-semibold text-lg mb-3 text-center animate-pulse">Purrrrocessing your file, stay fabulous!</p>
-                <div class="w-full bg-gradient-to-r from-soft-pink to-purple-100 rounded-full h-5 overflow-hidden shadow-inner-cute border border-candy-pink/50 relative">
-                    <div id="progress-bar-fill"
-                         class="h-full rounded-full animate-progress-stripes bg-size-stripes transition-width duration-300 ease-linear"
-                         style="width: 0%; background-image: repeating-linear-gradient(
-                                    -45deg,
-                                    rgba(255, 119, 204, 0.9),
-                                    rgba(255, 119, 204, 0.9) 10px,
-                                    rgba(249, 168, 212, 0.8) 10px,
-                                    rgba(249, 168, 212, 0.8) 20px
-                                );">
-                    </div>
+            <div id="progress-indicator" class="mt-4 md:mt-6 w-full max-w-md mx-auto hidden">
+                <p class="text-deep-purple font-semibold text-sm md:text-base lg:text-lg mb-2 text-center animate-pulse">Purrrrocessing!</p>
+                <div class="w-full bg-gradient-to-r from-soft-pink to-purple-100 rounded-full h-4 md:h-5 overflow-hidden shadow-inner-cute border border-candy-pink/50 relative">
+                    <div id="progress-bar-fill" class="h-full rounded-full animate-progress-stripes bg-size-stripes transition-width duration-300 ease-linear" style="width: 0%; background-image: repeating-linear-gradient(-45deg,rgba(255,119,204,0.9),rgba(255,119,204,0.9) 10px,rgba(249,168,212,0.8) 10px,rgba(249,168,212,0.8) 20px);"></div>
                 </div>
-                 <p class="text-center text-sm text-deep-purple/80 mt-1">Just a moment, darling...</p>
+                 <p class="text-center text-xs sm:text-sm text-deep-purple/80 mt-1">Just a moment...</p>
             </div>
 
-            <div id="result-area" class="mt-8 text-center hidden">
-                 <p class="text-green-600 font-bold text-2xl mb-4 animate-bounce-in">YAS! Finished!</p>
-                <a href="#" id="download-link" class="inline-block bg-gradient-to-r from-green-400 to-emerald-500 hover:from-green-500 hover:to-emerald-600 text-white font-bold py-3 px-6 rounded-full transition duration-300 ease-in-out shadow-md text-lg transform hover:scale-105" download>
+            <div id="result-area" class="mt-4 md:mt-6 text-center hidden">
+                 <p class="text-green-600 font-bold text-lg sm:text-xl md:text-2xl mb-3 md:mb-4 animate-bounce-in">YAS! Finished!</p>
+                <a href="#" id="download-link" class="inline-block bg-gradient-to-r from-green-400 to-emerald-500 hover:from-green-500 hover:to-emerald-600 text-white font-bold py-2 md:py-3 px-4 sm:px-5 md:px-6 rounded-full transition duration-300 ease-in-out shadow-md text-sm sm:text-base md:text-lg transform hover:scale-105" download>
                     💖 Download Results 💖
                 </a>
             </div>
 
-             <div id="error-area" class="mt-8 text-center hidden p-4 bg-red-100 text-red-700 rounded-lg border-2 border-red-300 shadow-inner-cute">
-                 <p class="font-bold text-xl mb-1">Uh oh! 😥</p>
-                <p id="error-message" class="text-md"></p>
+             <div id="error-area" class="mt-4 md:mt-6 text-center hidden p-3 md:p-4 bg-red-100 text-red-700 rounded-lg border-2 border-red-300 shadow-inner-cute">
+                 <p class="font-bold text-base sm:text-lg md:text-xl mb-1">Uh oh! 😥</p>
+                <p id="error-message" class="text-xs sm:text-sm md:text-md"></p>
             </div>
         </div>
 
-        <div class="flex-1 flex flex-col bg-gradient-to-br from-soft-pink via-white to-light-purple/30 rounded-2xl p-6 border border-candy-pink shadow-cute">
-            <h2 class="text-3xl font-bold text-center mb-4 text-deep-purple flex items-center justify-center gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 text-bubblegum-pink" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                </svg>
+        <div class="flex-1 flex flex-col w-full bg-gradient-to-br from-soft-pink via-white to-light-purple/30 rounded-2xl p-3 sm:p-4 md:p-6 border border-candy-pink shadow-cute">
+            <h2 class="text-xl sm:text-2xl md:text-3xl font-bold text-center mb-3 md:mb-4 text-deep-purple flex items-center justify-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 sm:h-6 sm:w-6 md:h-7 md:w-7 text-bubblegum-pink" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" /></svg>
                 Chat with Bingus!
             </h2>
-            <div id="chat-messages" class="flex-1 overflow-y-auto mb-4 p-4 bg-white/70 rounded-lg space-y-4 min-h-[350px] h-96 shadow-inner-cute" >
-                <p class="text-gray-500 italic text-sm text-center mt-4">Loading chat...</p>
+            <div id="chat-messages" class="flex-1 overflow-y-auto mb-3 md:mb-4 p-2 sm:p-3 md:p-4 bg-white/70 rounded-lg space-y-2 sm:space-y-3 md:space-y-4 min-h-[250px] sm:min-h-[300px] md:min-h-[350px] h-72 sm:h-80 md:h-96 shadow-inner-cute" >
+                <p class="text-gray-500 italic text-xs sm:text-sm text-center mt-4">Loading chat...</p>
                  <div id="typing-indicator" class="hidden flex items-center space-x-1.5 p-2 ml-2">
-                     <div class="w-2.5 h-2.5 bg-candy-pink rounded-full animate-dot-bounce-1"></div>
-                     <div class="w-2.5 h-2.5 bg-candy-pink rounded-full animate-dot-bounce-2"></div>
-                     <div class="w-2.5 h-2.5 bg-candy-pink rounded-full animate-dot-bounce-3"></div>
+                     <div class="w-2 h-2 sm:w-2.5 sm:h-2.5 bg-candy-pink rounded-full animate-dot-bounce-1"></div> <div class="w-2 h-2 sm:w-2.5 sm:h-2.5 bg-candy-pink rounded-full animate-dot-bounce-2"></div> <div class="w-2 h-2 sm:w-2.5 sm:h-2.5 bg-candy-pink rounded-full animate-dot-bounce-3"></div>
                  </div>
             </div>
-            <div class="flex gap-3 mt-auto items-center">
-                 <input type="text" id="chat-input" placeholder="Ask Bingus anything, hun!" class="flex-1 p-3 border-2 border-candy-pink rounded-full focus:outline-none focus:ring-2 focus:ring-bubblegum-pink focus:border-transparent transition duration-300 text-lg shadow-inner-cute">
-                 <button id="send-chat-button" class="bg-bubblegum-pink hover:bg-opacity-90 text-white font-bold p-3 rounded-full transition duration-300 ease-in-out shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-bubblegum-pink transform hover:scale-110">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M13 5l7 7-7 7M5 12h14" />
-                    </svg>
+            <div class="flex gap-2 mt-auto items-center">
+                <input type="text" id="chat-input" placeholder="Ask Bingus..." class="flex-1 p-2 sm:p-3 border-2 border-candy-pink rounded-full focus:outline-none focus:ring-2 focus:ring-bubblegum-pink focus:border-transparent transition duration-300 text-sm sm:text-base shadow-inner-cute min-w-0"/>
+                <button id="send-chat-button" class="bg-bubblegum-pink hover:bg-opacity-90 text-white font-bold p-2 sm:p-3 rounded-full transition duration-300 ease-in-out shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-bubblegum-pink transform hover:scale-110">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 5l7 7-7 7M5 12h14" /></svg>
                 </button>
             </div>
         </div>
 
     </div>
+
     <div id="random-popup-overlay" class="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden opacity-0 transition-opacity duration-300 ease-out cursor-pointer" aria-modal="true" role="dialog">
         <div id="random-popup-modal" class="bg-gradient-to-br from-white via-soft-pink to-candy-pink p-6 rounded-3xl shadow-glow max-w-md w-full text-center relative transform scale-95 opacity-0 transition-all duration-300 ease-out" style="cursor: default;" onclick="event.stopPropagation();">
             <button id="close-popup-button-x" class="absolute top-2 right-3 text-gray-500 hover:text-bubblegum-pink text-3xl font-bold transition leading-none p-1" aria-label="Close random pop-up">&times;</button>
@@ -128,12 +104,10 @@
         <div id="summary-popup-modal" class="bg-gradient-to-br from-white via-emerald-50 to-green-100 p-6 rounded-3xl shadow-glow max-w-lg w-full text-left relative transform scale-95 opacity-0 transition-all duration-300 ease-out" style="cursor: default;" onclick="event.stopPropagation();">
             <button id="close-summary-popup-button-x" class="absolute top-2 right-3 text-gray-500 hover:text-red-500 text-3xl font-bold transition leading-none p-1" aria-label="Close summary pop-up">&times;</button>
             <h3 class="text-2xl font-bold text-center mb-4 text-emerald-700 flex items-center justify-center gap-2">
-                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-7 h-7 text-emerald-600">
-                   <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                 </svg>
+                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-7 h-7 text-emerald-600"> <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /> </svg>
                 Processing Report!
             </h3>
-            <div id="summary-popup-content" class="text-gray-700 space-y-2">
+            <div id="summary-popup-content" class="text-gray-700 space-y-2 text-sm sm:text-base">
                 <p>Placeholder for summary content.</p>
             </div>
              <div class="text-center mt-6">
