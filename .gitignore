@@ -14,7 +14,7 @@ pip-wheel-metadata/
 node_modules/
 
 # Build output (Optional: if you build locally before commit)
-# static/css/style.css
+static/css/style.css
 
 # OS / Editor specific
 .DS_Store
