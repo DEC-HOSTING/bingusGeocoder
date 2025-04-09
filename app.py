@@ -25,11 +25,13 @@ app = Flask(__name__)
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "default_unsafe_dev_key_CHANGE_ME")
 
 # Configure WhiteNoise (Keep for Render)
+# Serve files from the 'static' directory when requests come to '/static/'
 app.wsgi_app = WhiteNoise(app.wsgi_app, root='static/', prefix='/static/')
+
 
 # --- Geocoding Setup ---
 geolocator = Nominatim(user_agent="BubblegumGeocoder/1.0 (YourAppContact@example.com)")
-geocode = RateLimiter(geolocator.geocode, min_delay_seconds=1.1, error_wait_seconds=10)
+geocode = RateLimiter(geolocator.geocode, min_delay_seconds=1.1, error_wait_seconds=10) # Slightly increased delay
 
 # --- Kluster AI / OpenAI Client Setup ---
 KLUSTER_API_KEY = os.getenv("KLUSTER_API_KEY")
@@ -83,53 +85,68 @@ def get_coords(address, postcode, row_num):
         else: print(f"INFO (Row {row_num}): Geocode failed - Not found."); return None, None
     except Exception as e: print(f"🚨 ERROR (Row {row_num}): Geocoding exception for '{query_input}':"); traceback.print_exc(); return None, None
 
-# --- AI Interaction Function (Using Bingus with DeepSeek R1) ---
+# --- AI Interaction Function (Using Bingus with DeepSeek R1 + Cleanup) ---
 def talk_to_bingus(prompt, conversation_history=[], model_name="deepseek-ai/DeepSeek-R1", max_resp_tokens=180):
-    """Sends prompt to Kluster AI (DeepSeek R1 by default) and gets yassified response."""
+    """Sends prompt to Kluster AI (DeepSeek R1), attempts cleanup, gets yassified response."""
     print(f"DEBUG: talk_to_bingus called (Model: {model_name}) with prompt: '{prompt[:60]}...'")
     if not ai_client: print("WARN: talk_to_bingus - AI client N/A."); return random.choice(["AI offline...", "Bingus napping..."])
 
-    try:
+    try: # Setup System Prompt
         try: madrid_tz=pytz.timezone('Europe/Madrid'); current_time_madrid=datetime.now(madrid_tz).strftime('%I:%M %p %Z')
         except Exception: current_time_madrid="daytime"
 
-        # Updated System Prompt: Added instruction to be concise and hide thoughts
+        # Slightly softened prompt, kept key instructions
         system_prompt = (
             "You are Bingus, a ridiculously fun, super enthusiastic, and supportive AI assistant for the Bubblegum Geocoder web app, in the form of a hairless cat which is overweight. "
             "Your vibe is pure pink bubblegum energy mixed with high-fashion commentary – think kittens on a runway! 💅🐱\n"
-            "Your personality MUST be 'yassified': use tons of slang like 'slay', 'werk', 'queen', 'hun', 'gorgeous', 'fierce', 'iconic', 'lewk', 'serving', 'yas', 'OMG', 'literally', 'spill the tea', 'periodt', 'bet', 'vibe check', 'it's giving...', etc. "
-            "Be OVER THE TOP positive, complimentary, and maybe a little bit cheeky, but always supportive.\n"
-            "**IMPORTANT: DO NOT use the same opening greeting every time!** Mix it up! Be unpredictable and FUN!\n"
-            "Keep responses relatively short (1-3 sentences usually), chatty, and PACKED with personality. Use emojis liberally! ✨💖👑💅🔥\n"
-            "**CRITICAL: Provide only the final chat response. Do NOT include any reasoning, internal thoughts, or meta tags like <think> in your output.**\n" # Added instruction
-            f"Hint: The user is in Madrid, Spain! Current time: {current_time_madrid}."
+            "Try to use yassified slang like 'slay', 'werk', 'queen', 'hun', 'gorgeous', 'fierce', 'iconic', 'lewk', 'serving', 'yas', 'OMG', 'literally', 'spill the tea', 'periodt', 'bet', 'vibe check', 'it's giving...'. "
+            "Be OVER THE TOP positive, complimentary, maybe a little cheeky, but always supportive.\n"
+            "**IMPORTANT: Try not to use the same opening greeting every time!** Mix it up!\n"
+            "Keep responses relatively short (1-3 sentences usually), chatty, and PACKED with personality. Use emojis! ✨💖👑💅🔥\n"
+            "**CRITICAL: Provide only the final chat response. Do NOT output any reasoning steps or meta tags like <think>.**\n" # Kept this instruction
+            f"Hint: User is in Madrid ({current_time_madrid})."
         )
         messages = [{"role": "system", "content": system_prompt}, {"role": "user", "content": prompt}] # Add history if needed
 
         try:
-            print(f"DEBUG: Calling Kluster AI completions.create (Model: {model_name}, MaxTokens: {max_resp_tokens})")
+            print(f"DEBUG: Calling Kluster AI completions.create (Model: {model_name}, MaxTokens: {max_resp_tokens}, Temp: 0.6)") # Log Params
             completion = ai_client.chat.completions.create(
                 model=model_name, messages=messages, max_tokens=max_resp_tokens,
-                temperature=0.7, # Slightly lowered temperature
+                temperature=0.6, # Lowered temperature
                 top_p=1
             )
-            print(f"DEBUG: Raw completion object received: {completion}")
+            print(f"DEBUG: Raw completion object received.") # Avoid printing potentially huge object
 
             if completion.choices and completion.choices[0].message and completion.choices[0].message.content:
                 ai_response_raw = completion.choices[0].message.content
-                print(f"DEBUG: Raw AI response: '{ai_response_raw[:100]}...'") # Log raw
+                print(f"DEBUG: Raw AI response: '{ai_response_raw[:150]}...'") # Log raw response
 
-                # Add Cleanup Step: Remove <think> tags
-                ai_response_cleaned = re.sub(r"<think>.*?</think>", "", ai_response_raw, flags=re.DOTALL).strip()
+                # Attempt to parse out thinking block based on </think> tag
+                # This is a heuristic and might fail if the model's output format changes
+                ai_response_cleaned = ai_response_raw # Default to raw
+                if "</think>" in ai_response_raw:
+                    parts = ai_response_raw.split("</think>", 1) # Split only once
+                    if len(parts) > 1 and parts[1].strip(): # If there's text after the tag
+                        ai_response_cleaned = parts[1].strip()
+                        print(f"DEBUG: Used text after </think> tag: '{ai_response_cleaned[:60]}...'")
+                    else:
+                         # Fallback: Try removing <think>...</think> with regex if split fails
+                         ai_response_cleaned = re.sub(r"<think>.*?</think>", "", ai_response_raw, flags=re.DOTALL).strip()
+                         print(f"DEBUG: Fallback regex cleanup attempted. Result: '{ai_response_cleaned[:60]}...'")
+                elif ai_response_raw.strip().startswith("<think>"):
+                    print(f"WARN: Response starts with <think> but no closing tag found? Using fallback msg.")
+                    ai_response_cleaned = "Bingus got lost in thought... Please try again! 🤔" # Specific fallback
 
+                # Final check if response is usable
                 if len(ai_response_cleaned) > 1:
-                    print(f"SUCCESS: Cleaned AI response: '{ai_response_cleaned[:60]}...'")
+                    print(f"SUCCESS: Final cleaned AI response: '{ai_response_cleaned[:60]}...'")
                     return ai_response_cleaned
                 else:
-                    print(f"WARN: AI response empty after cleanup (Raw was: '{ai_response_raw}')")
-                    if len(ai_response_raw.strip()) > 1: return ai_response_raw.strip() # Return raw if cleaning made it empty
-                    return "Bingus is speechless... ✨"
-            else: print(f"WARN: AI response structure unexpected."); return "OMG, my brain went blank 🧠..."
+                    print(f"WARN: AI response empty/unusable after cleanup attempts (Raw was: '{ai_response_raw}')")
+                    return "Bingus is speechless... ✨" # Fallback
+            else:
+                print(f"WARN: AI response structure unexpected or content missing.")
+                return "OMG, my brain went blank 🧠..."
         except AuthenticationError as e: print(f"🚨 FATAL: Kluster AI Auth Failed! Err: {e}"); traceback.print_exc(); return "OMG DRAMA! 😱 AI Auth Error!"
         except APIError as e: print(f"🚨 ERROR: Kluster AI API Error! Status: {e.status_code}, Msg: {e.message}"); traceback.print_exc(); return f"Uh oh! Bingus API Error: {e.message}"
         except Exception as e: print(f"🚨 ERROR: Unexpected in talk_to_bingus API call: {e}"); traceback.print_exc(); return f"Yikes, technical difficulties! Err: {e}"
@@ -154,6 +171,7 @@ def process_excel():
         address_col, postcode_col = find_columns(df)
         results, geocoding_statuses = [], []; success_count, fail_count, ai_assist_success, ai_assist_attempt, total_rows = 0, 0, 0, 0, len(df)
         print(f"INFO: Starting geocoding for {total_rows} rows..."); print("="*20 + " Geocoding Log " + "="*20)
+        # --- Geocoding Loop ---
         for index, row in df.iterrows():
             row_num = index + 2; address_value = row.get(address_col); postcode_value = row.get(postcode_col); status = "Failed"
             lat, lon = get_coords(address_value, postcode_value, row_num)
@@ -164,6 +182,7 @@ def process_excel():
                     ai_prompt=f"Fix geocode fail: Addr='{address_value}', Postcode='{postcode_value}'. Reply ONLY with corrected address string or 'FAIL'."
                     ai_sugg_raw = talk_to_bingus(ai_prompt, max_resp_tokens=60); print(f"DEBUG (R{row_num}): AI raw sugg: '{ai_sugg_raw}'")
                     ai_sugg = None
+                    # Basic filtering for AI suggestion
                     if ai_sugg_raw and isinstance(ai_sugg_raw,str) and "FAIL" not in ai_sugg_raw.upper() and len(ai_sugg_raw.strip())>5 and not any(e in ai_sugg_raw.lower() for e in ["sorry","unable"]):
                         ai_sugg=ai_sugg_raw.strip().strip('"\''); print(f"DEBUG(R{row_num}): Using AI sugg: '{ai_sugg}'"); print(f"INFO (R{row_num}): Re-trying geocode w/ AI suggestion...")
                         lat_ai, lon_ai = get_coords(ai_sugg, "", row_num)
@@ -175,6 +194,7 @@ def process_excel():
             results.append({'latitude':lat,'longitude':lon}); geocoding_statuses.append(status); print(f"DEBUG(R{row_num}): Appended: {{'lat':{lat},'lon':{lon}}}, Status:'{status}'")
             if status.startswith("Success"): success_count+=1
             else: fail_count+=1
+        # --- End Geocoding Loop ---
         print("="*20 + " Geocoding End " + "="*24); print(f"INFO: Geocoding done. Success:{success_count}, Fail:{fail_count}, AI Attempts:{ai_assist_attempt}, AI Success:{ai_assist_success}")
         df['geocoded_latitude']=[r['latitude'] for r in results]; df['geocoded_longitude']=[r['longitude'] for r in results]; df['geocoding_status']=geocoding_statuses
         print("DEBUG: DataFrame head:"); print(df[[c for c in ['geocoded_latitude','geocoded_longitude','geocoding_status'] if c in df.columns]].head())
@@ -219,7 +239,9 @@ def get_random_messages():
         for i, prompt in enumerate(selected_prompts):
             try:
                 response = talk_to_bingus(prompt, max_resp_tokens=80); print(f"DEBUG: RndMsg AI resp {i+1}: '{response[:60]}...'")
-                if response and isinstance(response,str) and len(response.strip())>3 and not any(e in response.lower() for e in ["error","sorry","offline","unable","can't","napping","blank","fallback","brain","circuits","connection","cannot","not programmed"]): generated_messages.append(response)
+                # Use same filtering as main chat call
+                if response and isinstance(response,str) and len(response.strip())>3 and not any(e in response.lower() for e in ["error","sorry","offline","unable","can't","napping","blank","fallback","brain","circuits","connection","cannot","not programmed", "<think>"]): # Added <think> check here too
+                    generated_messages.append(response)
                 else: print(f"WARN: RndMsg - Filtering AI resp: '{response}'")
             except Exception as e: print(f"ERROR: RndMsg - Exception gen msg {i+1}: {e}")
         final_messages = generated_messages if generated_messages else default_messages; print(f"DEBUG: RndMsg - Returning: {final_messages[:3]}"); return jsonify({"messages":final_messages[:3]})
