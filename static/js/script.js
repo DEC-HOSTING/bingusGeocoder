@@ -145,12 +145,51 @@ document.addEventListener('DOMContentLoaded', () => {
         randomPopupCount++;
     }
 
-    function hideRandomPopup() { if (!popupOverlay || !popupModal) return; popupOverlay.classList.add('animate-fade-out'); popupModal.classList.add('animate-scale-out'); setTimeout(() => { popupOverlay.classList.add('hidden'); popupOverlay.classList.remove('opacity-100', 'animate-fade-in', 'animate-fade-out'); popupOverlay.classList.add('opacity-0'); popupModal.classList.remove('opacity-100', 'scale-100', 'animate-scale-in', 'animate-scale-out'); popupModal.classList.add('opacity-0', 'scale-95'); }, 300); console.log("DEBUG: Random popup hidden."); } // Added log
+    function hideRandomPopup() { if (!popupOverlay || !popupModal) return; popupOverlay.classList.add('animate-fade-out'); popupModal.classList.add('animate-scale-out'); setTimeout(() => { popupOverlay.classList.add('hidden'); popupOverlay.classList.remove('opacity-100', 'animate-fade-in', 'animate-fade-out'); popupOverlay.classList.add('opacity-0'); popupModal.classList.remove('opacity-100', 'scale-100', 'animate-scale-in', 'animate-scale-out'); popupModal.classList.add('opacity-0', 'scale-95'); }, 300); console.log("DEBUG: Random popup hidden."); }
 
     // --- Summary Pop-up Logic ---
-    async function fetchProcessingSummary() { /* ... (keep existing implementation) ... */ }
-    function showSummaryPopup(data) { /* ... (keep existing implementation) ... */ }
-    function hideSummaryPopup() { /* ... (keep existing implementation) ... */ }
+    async function fetchProcessingSummary() {
+        console.log("DEBUG: fetchProcessingSummary CALLED."); // Log entry
+        try {
+            const response = await fetch('/get-processing-summary');
+            console.log(`DEBUG: /get-processing-summary response Status: ${response.status}, OK: ${response.ok}`);
+            if (!response.ok) { throw new Error(`HTTP error! status: ${response.status}`); }
+            const summaryData = await response.json();
+            console.log("DEBUG: Received summary data:", summaryData); // Log data
+            if (summaryData && Object.keys(summaryData).length > 0) {
+                console.log("DEBUG: Valid summary data received, calling showSummaryPopup..."); // Log before call
+                showSummaryPopup(summaryData);
+            } else {
+                console.log("WARN: No summary data received from backend (empty object). Popup not shown.");
+            }
+        } catch (error) { console.error("ERROR: Could not fetch processing summary:", error); displayMessage('Bingus ✨', "Couldn't fetch final report card!"); }
+    }
+
+    function showSummaryPopup(data) {
+        console.log("DEBUG: showSummaryPopup CALLED with data:", data); // Log entry
+        if (!summaryPopupOverlay || !summaryPopupModal || !summaryPopupContent) { console.error("ERROR: Summary popup elements missing!"); return; } // Check elements
+        console.log("DEBUG: Summary popup elements found.");
+
+        let contentHtml = `
+            <p><strong class="font-semibold text-deep-purple">File:</strong> ${data.filename || 'N/A'}</p>
+            <p><strong class="font-semibold text-deep-purple">Total Rows:</strong> ${data.total_rows ?? 'N/A'}</p><hr class="my-2 border-candy-pink/50">
+            <p><strong class="font-semibold text-green-600">Successful:</strong> ${data.success_count ?? 'N/A'}</p>
+            <p><strong class="font-semibold text-red-600">Failed:</strong> ${data.fail_count ?? 'N/A'}</p><hr class="my-2 border-candy-pink/50">
+            <p><strong class="font-semibold text-blue-600">AI Assist Attempts:</strong> ${data.ai_assist_attempt ?? 'N/A'}</p>
+            <p><strong class="font-semibold text-teal-600">AI Assist Successes:</strong> ${data.ai_assist_success ?? 'N/A'}</p>`;
+        let bingusComment = "Check the file for details, darling!";
+        if ((data.fail_count ?? 0) === 0 && (data.total_rows ?? 0) > 0) { bingusComment = "Purrrfect results! Slayed! ✨👑"; }
+        else if ((data.success_count ?? 0) / (data.total_rows ?? 1) < 0.5) { bingusComment = "Oof, many misses! Bingus tried!"; }
+        contentHtml += `<p class="mt-3 pt-3 border-t border-candy-pink/50 italic text-deep-purple/90">"${bingusComment}" - Bingus 🐾</p>`;
+        summaryPopupContent.innerHTML = contentHtml;
+
+        summaryPopupOverlay.classList.remove('hidden'); void summaryPopupOverlay.offsetWidth;
+        summaryPopupOverlay.classList.remove('opacity-0'); summaryPopupOverlay.classList.add('opacity-100', 'animate-fade-in');
+        summaryPopupModal.classList.remove('opacity-0', 'scale-95'); summaryPopupModal.classList.add('opacity-100', 'scale-100', 'animate-scale-in');
+        console.log("DEBUG: Summary popup should be visible now."); // Log visibility
+    }
+
+    function hideSummaryPopup() { if (!summaryPopupOverlay || !summaryPopupModal) return; summaryPopupOverlay.classList.add('animate-fade-out'); summaryPopupModal.classList.add('animate-scale-out'); setTimeout(() => { summaryPopupOverlay.classList.add('hidden'); summaryPopupOverlay.classList.remove('opacity-100', 'animate-fade-in', 'animate-fade-out'); summaryPopupOverlay.classList.add('opacity-0'); summaryPopupModal.classList.remove('opacity-100', 'scale-100', 'animate-scale-in', 'animate-scale-out'); summaryPopupModal.classList.add('opacity-0', 'scale-95'); }, 300); console.log("DEBUG: Summary popup hidden."); }
 
     // --- File Upload Handling ---
     if(fileInput) { fileInput.addEventListener('change', (e) => { if(fileNameDisplay) {fileNameDisplay.textContent=fileInput.files.length>0?fileInput.files[0].name:'No file chosen... yet!';} if(errorArea)errorArea.classList.add('hidden'); if(resultArea)resultArea.classList.add('hidden'); }); }
@@ -167,24 +206,18 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Initial Load ---
     try {
         console.log("DEBUG: Running initial setup...");
-        clearChatLoading(); // Attempt to clear "Loading..." first
+        clearChatLoading();
         // Fetch messages THEN set timeouts
         fetchRandomMessages().then(() => {
-            console.log("DEBUG: Random messages fetch completed (or failed). Setting timeouts for popups."); // Log after fetch
-            setTimeout(() => {
-                console.log("DEBUG: Timeout 1 fired. Calling showRandomPopup."); // Log timeout fire
-                showRandomPopup();
-            }, 5000); // Show first popup after 5 seconds
-            setTimeout(() => {
-                console.log("DEBUG: Timeout 2 fired. Calling showRandomPopup."); // Log timeout fire
-                showRandomPopup();
-            }, 45000); // Show second popup after 45 seconds
+            console.log("DEBUG: Random messages fetch completed. Setting timeouts.");
+            setTimeout(() => { console.log("DEBUG: Timeout 1 fired. Calling showRandomPopup."); showRandomPopup(); }, 5000);
+            setTimeout(() => { console.log("DEBUG: Timeout 2 fired. Calling showRandomPopup."); showRandomPopup(); }, 45000);
         });
         // Add initial greeting
         setTimeout(() => {
-            console.log("DEBUG: Calling displayMessage for initial greeting."); // Log before initial greeting
+            console.log("DEBUG: Calling displayMessage for initial greeting.");
             displayMessage('Bingus ✨', "Heeey gorgeous! Welcome! Upload a file or ask me anything! 💖");
-        }, 1000); // Delay initial greeting slightly
+        }, 1000);
         console.log("DEBUG: Initial setup scheduled.");
     } catch (error) {
         console.error("ERROR during initial setup:", error);
