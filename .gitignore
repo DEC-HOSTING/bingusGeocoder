@@ -1,0 +1,21 @@
+# Secrets
+.env*
+*.env
+*.env.*
+
+# Python
+venv/
+*.pyc
+__pycache__/
+*.egg-info/
+pip-wheel-metadata/
+
+# Node
+node_modules/
+
+# Build output (Optional: if you build locally before commit)
+# static/css/style.css
+
+# OS / Editor specific
+.DS_Store
+.vscode/
