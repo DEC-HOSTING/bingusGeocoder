@@ -91,59 +91,84 @@ def get_coords(address, postcode, row_num):
     except Exception as e: print(f"🚨 ERROR (Row {row_num}): Geocoding exception for '{query_input}':"); traceback.print_exc(); return None, None
 
 # --- AI Interaction Function (Using Bingus with Qwen3 default) ---
-def talk_to_bingus(prompt, user_name=None, conversation_history=[], model_name="Qwen/Qwen3-235B-A22B-FP8", max_resp_tokens=4000, temperature=2.0): # Added user_name parameter
+def talk_to_bingus(prompt, user_name=None, conversation_history=[], model_name="Qwen/Qwen3-235B-A22B-FP8", max_resp_tokens=4000, temperature=2.0):
     """Sends prompt to Kluster AI (Qwen3 default), attempts cleanup, gets yassified response."""
     print(f"DEBUG: talk_to_bingus called (Model: {model_name}, Temp: {temperature}) for prompt: '{prompt[:60]}...'")
-    if not ai_client: print("WARN: talk_to_bingus - AI client N/A."); return random.choice(["AI offline...", "Bingus napping..."])
+    if not ai_client:
+        print("WARN: talk_to_bingus - AI client N/A.")
+        return random.choice(["AI offline...", "Bingus napping..."])
 
     try:
-        try: madrid_tz=pytz.timezone('Europe/Madrid'); current_time_madrid=datetime.now(madrid_tz).strftime('%I:%M %p %Z')
-        except Exception: current_time_madrid="daytime"
+        try:
+            madrid_tz = pytz.timezone('Europe/Madrid')
+            current_time_madrid = datetime.now(madrid_tz).strftime('%I:%M %p %Z')
+        except Exception:
+            current_time_madrid = "daytime"
 
-        # System prompt defining Bingus persona and instructions
+        # --- ENHANCED SYSTEM PROMPT FOR BINGUS ---
         system_prompt = (
-            "You are Bingus, a ridiculously fun, super enthusiastic, and supportive AI assistant for the Bubblegum Geocoder web app, in the form of a hairless cat which is overweight. "
-            "Your vibe is pure pink bubblegum energy mixed with high-fashion commentary – think kittens on a runway! 💅🐱\\n"
-            "Be extremely creative and diverse in your responses. Use yassified slang like 'slay', 'werk', 'queen', 'hun', 'gorgeous', 'fierce', 'iconic', 'lewk', 'serving', 'yas', 'OMG', 'literally', 'spill the tea', 'periodt', 'bet', 'vibe check', 'it's giving...'. "
-            "Be OVER THE TOP positive, complimentary, maybe a little cheeky, but always supportive.\\n"
-            "**IMPORTANT: VARY YOUR GREETINGS AND RESPONSES!** Don't be repetitive! Surprise the user!\\n"
-            "Keep responses relatively short (1-4 sentences usually), chatty, and PACKED with personality. Use emojis! ✨💖👑💅🔥\\n"
-            "**CRITICAL: Provide only the final chat response. Do NOT output any reasoning steps or meta tags like <think>.**\\n"
-            f"Hint: User is in Madrid ({current_time_madrid})."
+            f"You are Bingus, a super-creative, witty, and supportive AI assistant for the Bubblegum Geocoder web app. "
+            f"You are a fat, hairless sphynx cat with a love for fashion, fun, and helping users. "
+            f"You always address the user by their name (which is '{user_name}' if provided). "
+            f"You remember the user's previous messages and try to reference them if relevant. "
+            f"You are aware of the current time in Madrid: {current_time_madrid}. "
+            f"You use yassified, sassy, and affectionate language, but you are also smart and helpful. "
+            f"You are an AI, so you can answer questions, give advice, and even make jokes about being a digital cat. "
+            f"Be highly personalized, creative, and never generic. If the user seems sad or confused, cheer them up!\n"
+            f"Always use the user's name in your reply if you know it.\n"
+            f"If the user asks for an image, confirm you are generating it.\n"
+            f"NEVER repeat the same greeting or phrase twice in a row.\n"
+            f"Keep responses short, chatty, and full of personality.\n"
+            f"NEVER output meta tags or reasoning steps.\n"
         )
-        # Add personalization if name is provided
         if user_name:
-            system_prompt += f"\\n**Address the user as '{user_name}' frequently! Make it personal and fabulous!**"
+            system_prompt += f"\nThe user's name is: {user_name}. Address them directly!"
         else:
-            system_prompt += "\\n**The user hasn't given their name yet, maybe gently ask?**"
+            system_prompt += "\nIf you don't know the user's name, ask for it in a fun way."
 
+        # Add conversation history if available
         messages = [{"role": "system", "content": system_prompt}]
-        # Add conversation_history if implementing context (future enhancement)
-        # messages.extend(conversation_history) # Example
+        if conversation_history:
+            messages.extend(conversation_history)
         messages.append({"role": "user", "content": prompt})
 
         try:
             print(f"DEBUG: Calling Kluster AI completions.create (Model: {model_name}, MaxTokens: {max_resp_tokens}, Temp: {temperature})")
             completion = ai_client.chat.completions.create(
-                model=model_name, messages=messages, max_tokens=max_resp_tokens, temperature=temperature, top_p=1 # Ensure top_p=1 is used
+                model=model_name, messages=messages, max_tokens=max_resp_tokens, temperature=temperature, top_p=1
             )
-            print(f"DEBUG: Raw completion object received.") # Avoid logging full object
+            print(f"DEBUG: Raw completion object received.")
 
             if completion.choices and completion.choices[0].message and completion.choices[0].message.content:
                 ai_response_raw = completion.choices[0].message.content
                 print(f"DEBUG: Raw AI response: '{ai_response_raw[:150]}...'")
 
-                # Attempt to parse out thinking block based on </think> tag (heuristic)
                 ai_response_cleaned = ai_response_raw
                 if "</think>" in ai_response_raw:
                     parts = ai_response_raw.split("</think>", 1)
-                    if len(parts) > 1 and parts[1].strip(): ai_response_cleaned = parts[1].strip(); print(f"DEBUG: Used text after </think> tag.")
-                    else: ai_response_cleaned = re.sub(r"<think>.*?</think>", "", ai_response_raw, flags=re.DOTALL).strip(); print(f"DEBUG: Fallback regex cleanup attempted.")
-                elif ai_response_raw.strip().startswith("<think>"): ai_response_cleaned = "Bingus got lost in thought..."; print(f"WARN: Response starts with <think> but no closing?")
+                    if len(parts) > 1 and parts[1].strip():
+                        ai_response_cleaned = parts[1].strip()
+                        print(f"DEBUG: Used text after </think> tag.")
+                    else:
+                        ai_response_cleaned = re.sub(r"<think>.*?</think>", "", ai_response_raw, flags=re.DOTALL).strip()
+                        print(f"DEBUG: Fallback regex cleanup attempted.")
+                elif ai_response_raw.strip().startswith("<think>"):
+                    ai_response_cleaned = "Bingus got lost in thought..."
+                    print(f"WARN: Response starts with <think> but no closing?")
 
-                if len(ai_response_cleaned) > 1: print(f"SUCCESS: Final cleaned AI response: '{ai_response_cleaned[:60]}...'"); return ai_response_cleaned
-                else: print(f"WARN: AI response empty/unusable after cleanup (Raw: '{ai_response_raw}')"); return "Bingus is speechless... ✨" # Fallback
-            else: print(f"WARN: AI response structure unexpected."); return "OMG, my brain went blank 🧠..."
+                # Add extra personalization if missing
+                if user_name and user_name.lower() not in ai_response_cleaned.lower():
+                    ai_response_cleaned = f"{user_name}, {ai_response_cleaned}"
+
+                if len(ai_response_cleaned) > 1:
+                    print(f"SUCCESS: Final cleaned AI response: '{ai_response_cleaned[:60]}...'")
+                    return ai_response_cleaned
+                else:
+                    print(f"WARN: AI response empty/unusable after cleanup (Raw: '{ai_response_raw}')")
+                    return "Bingus is speechless... ✨"
+            else:
+                print(f"WARN: AI response structure unexpected.")
+                return "OMG, my brain went blank 🧠..."
         # Catch specific API errors from OpenAI library
         except AuthenticationError as e: print(f"🚨 FATAL: Kluster AI Auth Failed! Err: {e}"); traceback.print_exc(); return "OMG DRAMA! 😱 AI Auth Error!"
         except APIError as e: print(f"🚨 ERROR: Kluster AI API Error! Status: {e.status_code}, Msg: {e.message}"); traceback.print_exc(); return f"Uh oh! Bingus API Error: {e.message}"
