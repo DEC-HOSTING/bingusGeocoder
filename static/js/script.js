@@ -44,61 +44,136 @@ document.addEventListener('DOMContentLoaded', () => {
     let potentialPopupMessages = ["Default: Looking fabulous today! ✨", "Default: Data slayer! 🔥"];
     let fakeProgressInterval = null; const ESTIMATED_PROCESSING_TIME_MS = 15000;
 
-    // --- Helper Functions ---
-    function typewriterMessage(sender, message, callback) {
-        if (!chatMessages) return;
-        const aiSpeaker = 'Bingus ✨';
-        const messageWrapper = document.createElement('div');
-        const messageElement = document.createElement('p');
-        const strong = document.createElement('strong');
-        messageWrapper.classList.add('animate-fade-in-up', 'transition-all', 'duration-500');
-        messageElement.classList.add('text-left', 'mr-8', 'bg-white', 'bg-opacity-90', 'p-3', 'rounded-lg', 'rounded-bl-none', 'shadow-md', 'inline-block', 'max-w-xs', 'sm:max-w-sm', 'md:max-w-md', 'break-words');
-        strong.textContent = aiSpeaker + ': ';
-        strong.classList.add('text-bubblegum-pink');
-        messageElement.appendChild(strong);
-        const span = document.createElement('span');
-        messageElement.appendChild(span);
-        messageWrapper.appendChild(messageElement);
-        if (typingIndicator) chatMessages.insertBefore(messageWrapper, typingIndicator); else chatMessages.appendChild(messageWrapper);
-        chatMessages.scrollTo({ top: chatMessages.scrollHeight, behavior: 'smooth' });
-        let i = 0;
+    // --- Bingus Emotes, Fun Facts, Quick Replies, and Sound ---
+const bingusEmotes = [
+    '😸', '😻', '😹', '✨', '💅', '👑', '🎉', '💖', '🔥', '🐾',
+    '<img src="/static/images/kitten1.png" alt="Bingus emote" class="inline w-8 h-8 rounded-full align-middle" style="vertical-align:middle;">'
+];
+const bingusFunFacts = [
+    "Did you know? Sphynx cats are not actually hairless—they have a fine peach fuzz!",
+    "Bingus loves bubble baths and fashion shows!",
+    "Sphynx cats are known for their friendly, energetic personalities.",
+    "Bingus's favorite color is bubblegum pink!",
+    "Sphynx cats need regular baths because they get oily skin.",
+    "Bingus can slay a runway and a spreadsheet!",
+    "Fun fact: Sphynx cats are very cuddly and love warmth!"
+];
+const bingusSounds = [
+    '/static/sounds/meow1.mp3',
+    '/static/sounds/meow2.mp3',
+    '/static/sounds/pop.mp3'
+];
+let bingusMessageCount = 0;
+function playBingusSound() {
+    const src = bingusSounds[Math.floor(Math.random() * bingusSounds.length)];
+    const audio = new Audio(src);
+    audio.volume = 0.25;
+    audio.play();
+}
+function getRandomEmote() {
+    return bingusEmotes[Math.floor(Math.random() * bingusEmotes.length)];
+}
+function maybeShowFunFact() {
+    if (bingusMessageCount > 0 && bingusMessageCount % 4 === 0) {
+        const fact = bingusFunFacts[Math.floor(Math.random() * bingusFunFacts.length)];
+        displayMessage('Bingus ✨', `💡 <span class="text-bubblegum-pink font-bold">Bingus Fact:</span> ${fact}`);
+    }
+}
+function showQuickReplies(options) {
+    if (!chatMessages) return;
+    const quickReplyDiv = document.createElement('div');
+    quickReplyDiv.className = 'flex gap-2 mt-2 mb-2';
+    options.forEach(opt => {
+        const btn = document.createElement('button');
+        btn.className = 'bg-bubblegum-pink text-white px-3 py-1 rounded-full font-semibold hover:scale-105 transform transition duration-200 shadow-sm text-sm';
+        btn.textContent = opt.label;
+        btn.onclick = () => {
+            displayMessage('You', opt.text);
+            chatInput.value = opt.text;
+            sendChatMessage();
+            quickReplyDiv.remove();
+        };
+        quickReplyDiv.appendChild(btn);
+    });
+    chatMessages.appendChild(quickReplyDiv);
+    chatMessages.scrollTo({ top: chatMessages.scrollHeight, behavior: 'smooth' });
+}
+// --- Typewriter effect: start after short delay for perceived speed ---
+function typewriterMessage(sender, message, callback) {
+    if (!chatMessages) return;
+    const aiSpeaker = 'Bingus ✨';
+    const messageWrapper = document.createElement('div');
+    const messageElement = document.createElement('p');
+    const strong = document.createElement('strong');
+    messageWrapper.classList.add('animate-fade-in-up', 'transition-all', 'duration-500');
+    messageElement.classList.add('text-left', 'mr-8', 'bg-white', 'bg-opacity-90', 'p-3', 'rounded-lg', 'rounded-bl-none', 'shadow-md', 'inline-block', 'max-w-xs', 'sm:max-w-sm', 'md:max-w-md', 'break-words');
+    strong.textContent = aiSpeaker + ': ';
+    strong.classList.add('text-bubblegum-pink');
+    messageElement.appendChild(strong);
+    const span = document.createElement('span');
+    messageElement.appendChild(span);
+    messageWrapper.appendChild(messageElement);
+    if (typingIndicator) chatMessages.insertBefore(messageWrapper, typingIndicator); else chatMessages.appendChild(messageWrapper);
+    chatMessages.scrollTo({ top: chatMessages.scrollHeight, behavior: 'smooth' });
+    let i = 0;
+    setTimeout(() => {
         function type() {
             if (i <= message.length) {
                 span.textContent = message.slice(0, i);
                 chatMessages.scrollTo({ top: chatMessages.scrollHeight, behavior: 'smooth' });
                 i++;
-                setTimeout(type, 12 + Math.random() * 30); // randomize for realism
+                setTimeout(type, 12 + Math.random() * 30);
             } else {
                 if (callback) callback();
             }
         }
         type();
-    }
-    // Patch displayMessage to use typewriter for Bingus
-    function displayMessage(sender, message) {
-        console.log(`DEBUG: displayMessage CALLED. Sender: "${sender}", Message: "${message ? message.substring(0, 30) : 'null/empty'}..."`);
-        if (!chatMessages) { console.error("ERROR in displayMessage: chatMessages element is null!"); return; }
-        const aiSpeaker = 'Bingus ✨'; if (sender === aiSpeaker) hideTypingIndicator();
-        if (sender === aiSpeaker) {
-            typewriterMessage(sender, message);
-            return;
+    }, 350 + Math.random() * 200); // short delay for perceived speed
+}
+// Patch displayMessage for Bingus to add emotes, sound, fun facts, and quick replies
+function displayMessage(sender, message, opts = {}) {
+    const aiSpeaker = 'Bingus ✨';
+    if (!chatMessages) { console.error("ERROR in displayMessage: chatMessages element is null!"); return; }
+    if (sender === aiSpeaker) {
+        hideTypingIndicator();
+        bingusMessageCount++;
+        // Add emote
+        let emote = getRandomEmote();
+        let msgWithEmote = message;
+        if (!message.includes('img') && Math.random() < 0.7) {
+            msgWithEmote = emote + ' ' + message;
         }
-        const messageWrapper = document.createElement('div'); const messageElement = document.createElement('p'); const strong = document.createElement('strong');
-        messageWrapper.classList.add('animate-fade-in-up', 'transition-all', 'duration-500');
-        if (sender === 'You') {
-            messageElement.classList.add('text-right', 'ml-8', 'bg-purple-100', 'p-3', 'rounded-lg', 'rounded-br-none', 'shadow-sm', 'inline-block', 'max-w-xs', 'sm:max-w-sm', 'md:max-w-md', 'break-words');
-            strong.textContent = 'You: '; strong.classList.add('text-deep-purple'); messageWrapper.classList.add('text-right');
-        } else {
-            messageElement.classList.add('text-left', 'mr-8', 'bg-white', 'bg-opacity-90', 'p-3', 'rounded-lg', 'rounded-bl-none', 'shadow-md', 'inline-block', 'max-w-xs', 'sm:max-w-sm', 'md:max-w-md', 'break-words');
-            strong.textContent = aiSpeaker + ': '; strong.classList.add('text-bubblegum-pink'); messageWrapper.classList.add('text-left');
+        // Play sound
+        playBingusSound();
+        // Typewriter effect
+        typewriterMessage(sender, msgWithEmote);
+        // Fun fact every few messages
+        maybeShowFunFact();
+        // Quick replies
+        if (!opts.noQuickReplies && Math.random() < 0.7) {
+            showQuickReplies([
+                { label: 'Slay!', text: 'Slay!' },
+                { label: 'Tell me more!', text: 'Tell me more, Bingus!' },
+                { label: 'Draw Bingus!', text: 'Draw Bingus!' }
+            ]);
         }
-        messageElement.appendChild(strong); messageElement.appendChild(document.createTextNode(message || "")); messageWrapper.appendChild(messageElement);
-        if(typingIndicator) chatMessages.insertBefore(messageWrapper, typingIndicator); else chatMessages.appendChild(messageWrapper);
-        chatMessages.scrollTo({ top: chatMessages.scrollHeight, behavior: 'smooth' }); console.log("DEBUG: Message added to chat window.");
+        return;
     }
+    if (sender === aiSpeaker) hideTypingIndicator();
+    const messageWrapper = document.createElement('div'); const messageElement = document.createElement('p'); const strong = document.createElement('strong');
+    messageWrapper.classList.add('animate-fade-in-up', 'transition-all', 'duration-500');
+    if (sender === 'You') {
+        messageElement.classList.add('text-right', 'ml-8', 'bg-purple-100', 'p-3', 'rounded-lg', 'rounded-br-none', 'shadow-sm', 'inline-block', 'max-w-xs', 'sm:max-w-sm', 'md:max-w-md', 'break-words');
+        strong.textContent = 'You: '; strong.classList.add('text-deep-purple'); messageWrapper.classList.add('text-right');
+    } else {
+        messageElement.classList.add('text-left', 'mr-8', 'bg-white', 'bg-opacity-90', 'p-3', 'rounded-lg', 'rounded-bl-none', 'shadow-md', 'inline-block', 'max-w-xs', 'sm:max-w-sm', 'md:max-w-md', 'break-words');
+        strong.textContent = aiSpeaker + ': '; strong.classList.add('text-bubblegum-pink'); messageWrapper.classList.add('text-left');
+    }
+    messageElement.appendChild(strong); messageElement.appendChild(document.createTextNode(message || "")); messageWrapper.appendChild(messageElement);
+    if(typingIndicator) chatMessages.insertBefore(messageWrapper, typingIndicator); else chatMessages.appendChild(messageWrapper);
+    chatMessages.scrollTo({ top: chatMessages.scrollHeight, behavior: 'smooth' }); console.log("DEBUG: Message added to chat window.");
+}
 
-    function showTypingIndicator() { if (!isTyping && typingIndicator) { typingIndicator.classList.remove('hidden'); if(chatMessages) chatMessages.scrollTo({ top: chatMessages.scrollHeight, behavior: 'smooth' }); isTyping = true; } }
-    function hideTypingIndicator() { if (isTyping && typingIndicator) { typingIndicator.classList.add('hidden'); isTyping = false; } }
     function clearChatLoading() { console.log("DEBUG: clearChatLoading CALLED."); const loading = chatMessages?.querySelector('p.italic'); if (loading) { loading.remove(); console.log("DEBUG: 'Loading chat...' removed."); } else { console.log("DEBUG: 'Loading chat...' not found."); } }
 
     // --- Progress Functions ---
@@ -453,3 +528,40 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 }); // End DOMContentLoaded
+
+// --- Fancy Bingus Thinking Animation ---
+function showFancyThinking() {
+    if (!typingIndicator) return;
+    typingIndicator.innerHTML = `
+        <div class="flex items-center gap-2">
+            <img src="/static/images/kitten_icon.png" alt="Bingus thinking" class="w-8 h-8 rounded-full animate-bounce-in" style="box-shadow:0 0 12px #ff77cc99;">
+            <span class="text-bubblegum-pink font-bold animate-pulse">Bingus is thinking...</span>
+            <span class="fancy-dots text-bubblegum-pink text-xl">💭</span>
+        </div>
+    `;
+    typingIndicator.classList.remove('hidden');
+    isTyping = true;
+    // Animate dots
+    let dotCount = 0;
+    if (typingIndicator.fancyInterval) clearInterval(typingIndicator.fancyInterval);
+    typingIndicator.fancyInterval = setInterval(() => {
+        dotCount = (dotCount + 1) % 4;
+        const dots = '💭'.repeat(dotCount + 1);
+        const dotSpan = typingIndicator.querySelector('.fancy-dots');
+        if (dotSpan) dotSpan.textContent = dots;
+    }, 400);
+}
+function hideFancyThinking() {
+    if (!typingIndicator) return;
+    typingIndicator.classList.add('hidden');
+    isTyping = false;
+    if (typingIndicator.fancyInterval) clearInterval(typingIndicator.fancyInterval);
+    typingIndicator.innerHTML = `
+        <div class="w-2 h-2 sm:w-2.5 sm:h-2.5 bg-candy-pink rounded-full animate-dot-bounce-1"></div>
+        <div class="w-2 h-2 sm:w-2.5 sm:h-2.5 bg-candy-pink rounded-full animate-dot-bounce-2"></div>
+        <div class="w-2 h-2 sm:w-2.5 sm:h-2.5 bg-candy-pink rounded-full animate-dot-bounce-3"></div>
+    `;
+}
+// Patch showTypingIndicator/hideTypingIndicator to use fancy version
+function showTypingIndicator() { showFancyThinking(); }
+function hideTypingIndicator() { hideFancyThinking(); }
