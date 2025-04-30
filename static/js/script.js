@@ -616,41 +616,40 @@ function displayMessage(sender, message, opts = {}) {
         }
     }
 
-}); // End DOMContentLoaded
+    // --- Fancy Bingus Thinking Animation ---
+    function showFancyThinking() {
+        if (!typingIndicator) return;
+        typingIndicator.innerHTML = `
+            <div class="flex items-center gap-2">
+                <img src="/static/images/kitten_icon.png" alt="Bingus thinking" class="w-8 h-8 rounded-full animate-bounce-in" style="box-shadow:0 0 12px #ff77cc99;">
+                <span class="text-bubblegum-pink font-bold animate-pulse">Bingus is thinking...</span>
+                <span class="fancy-dots text-bubblegum-pink text-xl">💭</span>
+            </div>
+        `;
+        typingIndicator.classList.remove('hidden');
+        isTyping = true;
+        // Animate dots
+        let dotCount = 0;
+        if (typingIndicator.fancyInterval) clearInterval(typingIndicator.fancyInterval);
+        typingIndicator.fancyInterval = setInterval(() => {
+            dotCount = (dotCount + 1) % 4;
+            const dots = '💭'.repeat(dotCount + 1);
+            const dotSpan = typingIndicator.querySelector('.fancy-dots');
+            if (dotSpan) dotSpan.textContent = dots;
+        }, 400);
+    }
+    function hideFancyThinking() {
+        if (!typingIndicator) return;
+        typingIndicator.classList.add('hidden');
+        isTyping = false;
+        if (typingIndicator.fancyInterval) clearInterval(typingIndicator.fancyInterval);
+        typingIndicator.innerHTML = `
+            <div class="w-2 h-2 sm:w-2.5 sm:h-2.5 bg-candy-pink rounded-full animate-dot-bounce-1"></div>
+            <div class="w-2 h-2 sm:w-2.5 sm:h-2.5 bg-candy-pink rounded-full animate-dot-bounce-2"></div>
+            <div class="w-2 h-2 sm:w-2.5 sm:h-2.5 bg-candy-pink rounded-full animate-dot-bounce-3"></div>
+        `;
+    }
+    function showTypingIndicator() { showFancyThinking(); }
+    function hideTypingIndicator() { hideFancyThinking(); }
 
-// --- Fancy Bingus Thinking Animation ---
-function showFancyThinking() {
-    if (!typingIndicator) return;
-    typingIndicator.innerHTML = `
-        <div class="flex items-center gap-2">
-            <img src="/static/images/kitten_icon.png" alt="Bingus thinking" class="w-8 h-8 rounded-full animate-bounce-in" style="box-shadow:0 0 12px #ff77cc99;">
-            <span class="text-bubblegum-pink font-bold animate-pulse">Bingus is thinking...</span>
-            <span class="fancy-dots text-bubblegum-pink text-xl">💭</span>
-        </div>
-    `;
-    typingIndicator.classList.remove('hidden');
-    isTyping = true;
-    // Animate dots
-    let dotCount = 0;
-    if (typingIndicator.fancyInterval) clearInterval(typingIndicator.fancyInterval);
-    typingIndicator.fancyInterval = setInterval(() => {
-        dotCount = (dotCount + 1) % 4;
-        const dots = '💭'.repeat(dotCount + 1);
-        const dotSpan = typingIndicator.querySelector('.fancy-dots');
-        if (dotSpan) dotSpan.textContent = dots;
-    }, 400);
-}
-function hideFancyThinking() {
-    if (!typingIndicator) return;
-    typingIndicator.classList.add('hidden');
-    isTyping = false;
-    if (typingIndicator.fancyInterval) clearInterval(typingIndicator.fancyInterval);
-    typingIndicator.innerHTML = `
-        <div class="w-2 h-2 sm:w-2.5 sm:h-2.5 bg-candy-pink rounded-full animate-dot-bounce-1"></div>
-        <div class="w-2 h-2 sm:w-2.5 sm:h-2.5 bg-candy-pink rounded-full animate-dot-bounce-2"></div>
-        <div class="w-2 h-2 sm:w-2.5 sm:h-2.5 bg-candy-pink rounded-full animate-dot-bounce-3"></div>
-    `;
-}
-// Patch showTypingIndicator/hideTypingIndicator to use fancy version
-function showTypingIndicator() { showFancyThinking(); }
-function hideTypingIndicator() { hideFancyThinking(); }
+}); // End DOMContentLoaded
