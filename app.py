@@ -86,11 +86,11 @@ def get_coords(address, postcode, row_num):
 
 # --- AI Interaction Function (Using Bingus with Qwen3 default) ---
 def talk_to_bingus(prompt, user_name=None, conversation_history=[], model_name="Qwen/Qwen3-235B-A22B-FP8", max_resp_tokens=4000, temperature=2.0):
-    """Sends prompt to Kluster AI (Qwen3), gets creative, personalized response."""
+    """Sends prompt to Kluster AI (Qwen3), parses thinking/response, returns dict."""
     print(f"DEBUG: talk_to_bingus called (Model: {model_name}, Temp: {temperature}) for prompt: '{prompt[:60]}...'")
     if not ai_client:
         print("WARN: talk_to_bingus - AI client N/A.")
-        return random.choice(["AI offline...", "Bingus napping..."])
+        return {"error": "AI offline... Bingus napping..."}
     try:
         system_prompt = (
             "You are Bingus, a creative, witty, and supportive AI assistant for the Bubblegum Geocoder web app. "
@@ -99,6 +99,7 @@ def talk_to_bingus(prompt, user_name=None, conversation_history=[], model_name="
             "Be highly personalized, creative, and never generic.\n"
             "Keep responses short, chatty, and full of personality.\n"
             "NEVER output meta tags or reasoning steps.\n"
+            "FIRST, think step-by-step within <think></think> tags. THEN, provide the final chat response outside the tags.\n"
         )
         if user_name:
             system_prompt += f"\nThe user's name is: {user_name}. Address them directly!"
@@ -113,11 +114,29 @@ def talk_to_bingus(prompt, user_name=None, conversation_history=[], model_name="
             top_p=1
         )
         if completion.choices and completion.choices[0].message and completion.choices[0].message.content:
-            return completion.choices[0].message.content.strip()
-        return "Bingus is speechless... ✨"
+            ai_response_raw = completion.choices[0].message.content
+            print(f"DEBUG: Raw AI response: '{ai_response_raw[:150]}...'")
+            thinking_text = None
+            response_text = ai_response_raw # Default to full response
+            # Parse thinking and response parts
+            think_match = re.search(r"<think>(.*?)</think>(.*)", ai_response_raw, re.DOTALL | re.IGNORECASE)
+            if think_match:
+                thinking_text = think_match.group(1).strip()
+                response_text = think_match.group(2).strip()
+                print(f"DEBUG: Parsed Thinking: '{thinking_text[:60]}...'")
+                print(f"DEBUG: Parsed Response: '{response_text[:60]}...'")
+            elif ai_response_raw.strip().startswith("<think>"):
+                 # Handle case where only thinking is returned (error?)
+                 thinking_text = ai_response_raw.strip()
+                 response_text = "Bingus got lost in thought... ✨"
+                 print(f"WARN: Only <think> tag found? Raw: {ai_response_raw}")
+            if not response_text:
+                 response_text = "Bingus is speechless... ✨" # Fallback if response is empty after parsing
+            return {"thinking": thinking_text, "response": response_text}
+        return {"response": "OMG, my brain went blank 🧠..."}
     except Exception as e:
         print(f"ERROR: Bingus AI error: {e}")
-        return f"Bingus AI error: {e}"
+        return {"error": f"Bingus AI error: {e}"}
 
 # --- Flask Routes ---
 
@@ -203,8 +222,11 @@ def chat():
     data = request.get_json()
     user_message = data.get('message')
     user_name = data.get('userName') or 'Gorgeous'
-    ai_response = talk_to_bingus(user_message, user_name=user_name)
-    return jsonify({"response": ai_response})
+    ai_result = talk_to_bingus(user_message, user_name=user_name)
+    # Check if there was an error talking to bingus
+    if "error" in ai_result:
+        return jsonify({"response": ai_result["error"]}), 500 # Return error status
+    return jsonify(ai_result) # Return dict with thinking/response
 
 @app.route('/generate-image', methods=['POST'])
 def generate_image():
@@ -258,12 +280,17 @@ def get_random_messages():
         "Sparkle reminder!"
     ]
     messages = []
+    default_messages = ["Sparkle On! ✨", "You're doing great!💖", "Slay! 🔥"]
     for prompt in prompts:
-        resp = talk_to_bingus(prompt)
-        if resp:
-            messages.append(resp)
+        # talk_to_bingus now returns a dict, we only need the response part here
+        resp_dict = talk_to_bingus(prompt)
+        if resp_dict and "response" in resp_dict and resp_dict["response"]:
+            # Basic filtering for random messages
+            resp_text = resp_dict["response"]
+            if not any(e in resp_text.lower() for e in ["error","sorry","offline","unable","can't","napping","blank"]):
+                 messages.append(resp_text)
     if not messages:
-        messages = ["Sparkle On! ✨", "You're doing great!💖", "Slay! 🔥"]
+        messages = default_messages
     return jsonify({"messages": messages})
 
 # --- Run the App ---

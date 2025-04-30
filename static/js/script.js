@@ -29,8 +29,9 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log("DEBUG: sendChatButton element:", sendChatButton ? "Found" : "NOT FOUND");
     const typingIndicator = document.getElementById('typing-indicator');
     console.log("DEBUG: typingIndicator element:", typingIndicator ? "Found" : "NOT FOUND");
-    const progressBarFill = document.getElementById('progress-bar-fill');
-    console.log("DEBUG: progressBarFill element:", progressBarFill ? "Found" : "NOT FOUND");
+    // Add element for the thinking bubble
+    const thinkingBubble = document.getElementById('thinking-bubble');
+    console.log("DEBUG: thinkingBubble element:", thinkingBubble ? "Found" : "NOT FOUND");
     // Random Popup
     const popupOverlay = document.getElementById('random-popup-overlay'); const popupModal = document.getElementById('random-popup-modal'); const popupMessage = document.getElementById('random-popup-message'); const closePopupButton = document.getElementById('close-popup-button'); const closePopupButtonX = document.getElementById('close-popup-button-x');
     console.log("DEBUG: Random Popup elements:", popupOverlay && popupModal && popupMessage ? "Found" : "Some NOT FOUND!"); // Added check
@@ -130,6 +131,34 @@ function typewriterMessage(sender, message, callback) {
         type();
     }, 350 + Math.random() * 200); // short delay for perceived speed
 }
+
+// --- NEW: Function to display the thinking bubble ---
+function displayThinkingBubble(thinkingText) {
+    if (!thinkingBubble || !thinkingText) return;
+    console.log("DEBUG: Displaying thinking bubble:", thinkingText);
+    const bubbleContent = thinkingBubble.querySelector('#thinking-bubble-content');
+    if (bubbleContent) {
+        bubbleContent.textContent = thinkingText;
+        thinkingBubble.classList.remove('hidden', 'opacity-0', 'scale-95');
+        thinkingBubble.classList.add('opacity-100', 'scale-100', 'animate-scale-in');
+        // Optional: Auto-hide after a few seconds if needed, but we hide it before showing the main message
+    }
+}
+
+// --- NEW: Function to hide the thinking bubble ---
+function hideThinkingBubble() {
+    if (!thinkingBubble) return;
+    console.log("DEBUG: Hiding thinking bubble.");
+    thinkingBubble.classList.remove('opacity-100', 'scale-100', 'animate-scale-in');
+    thinkingBubble.classList.add('opacity-0', 'scale-95', 'animate-scale-out');
+    // Use setTimeout to add hidden class after animation
+    setTimeout(() => {
+        thinkingBubble.classList.add('hidden');
+        const bubbleContent = thinkingBubble.querySelector('#thinking-bubble-content');
+        if (bubbleContent) bubbleContent.textContent = ''; // Clear content
+    }, 300); // Match animation duration
+}
+
 // Patch displayMessage for Bingus to add emotes, sound, fun facts, and quick replies
 function displayMessage(sender, message, opts = {}) {
     const aiSpeaker = 'Bingus ✨';
@@ -270,16 +299,19 @@ function displayMessage(sender, message, opts = {}) {
         displayMessage('You', message);
         chatInput.value = '';
         chatInput.focus();
-        showTypingIndicator();
-        // Detect image generation intent
+        showTypingIndicator(); // Show fancy typing indicator immediately
+        hideThinkingBubble(); // Ensure any previous bubble is hidden
+
+        // Detect image generation intent (keep existing logic)
         const imageTriggers = [
             'draw bingus', 'generate image', 'show me bingus', 'make a picture', 'create an image', 'fat sphynx cat', 'cat pic', 'cat image', 'bingus art', 'picture of bingus'
         ];
         const lowerMsg = message.toLowerCase();
         if (imageTriggers.some(trigger => lowerMsg.includes(trigger))) {
-            await generateBingusImage();
+            await generateBingusImage(); // This function should also hide typing indicator
             return;
         }
+
         try {
             const response = await fetch('/chat', {
                 method: 'POST',
@@ -287,22 +319,44 @@ function displayMessage(sender, message, opts = {}) {
                 body: JSON.stringify({ message: message, userName: userName }),
             });
             const responseText = await response.text();
+            console.log(`DEBUG: /chat response Status: ${response.status}, OK: ${response.ok}`);
+            console.log(`DEBUG: /chat response text: ${responseText}`);
+
             if (!response.ok) {
                 let eData = { error: `Server error:${response.status}`, message: responseText };
                 try { eData = JSON.parse(responseText); } catch (e) { }
                 throw new Error(eData.error || eData.message || `Server error:${response.status}`);
             }
+
             const data = JSON.parse(responseText);
-            hideTypingIndicator();
+            console.log("DEBUG: Parsed /chat data:", data);
+
+            // --- NEW: Handle Thinking Bubble --- 
+            if (data.thinking) {
+                displayThinkingBubble(data.thinking);
+                // Wait a bit before showing the final response
+                await new Promise(resolve => setTimeout(resolve, 1500 + Math.random() * 1000)); // Wait 1.5-2.5 seconds
+                hideThinkingBubble();
+                // Short delay before typing starts after bubble hides
+                await new Promise(resolve => setTimeout(resolve, 300)); 
+            }
+            // --- End NEW --- 
+
+            hideTypingIndicator(); // Hide indicator *before* showing the final message
             const aiSpeaker = 'Bingus ✨';
+
             if (data.response) {
                 displayMessage(aiSpeaker, data.response);
             } else if (data.error) {
+                // Display error from backend if available
                 displayMessage(aiSpeaker, `Oopsie! ${data.error}`);
             } else {
                 displayMessage(aiSpeaker, "Hmm, unexpected response...");
             }
+
         } catch (error) {
+            console.error("ERROR in sendChatMessage fetch/processing:", error);
+            hideThinkingBubble(); // Hide bubble on error too
             hideTypingIndicator();
             displayMessage('Bingus ✨', `Connection fuzzy! (${error.message})`);
         }
