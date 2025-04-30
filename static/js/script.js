@@ -45,10 +45,44 @@ document.addEventListener('DOMContentLoaded', () => {
     let fakeProgressInterval = null; const ESTIMATED_PROCESSING_TIME_MS = 15000;
 
     // --- Helper Functions ---
+    function typewriterMessage(sender, message, callback) {
+        if (!chatMessages) return;
+        const aiSpeaker = 'Bingus ✨';
+        const messageWrapper = document.createElement('div');
+        const messageElement = document.createElement('p');
+        const strong = document.createElement('strong');
+        messageWrapper.classList.add('animate-fade-in-up', 'transition-all', 'duration-500');
+        messageElement.classList.add('text-left', 'mr-8', 'bg-white', 'bg-opacity-90', 'p-3', 'rounded-lg', 'rounded-bl-none', 'shadow-md', 'inline-block', 'max-w-xs', 'sm:max-w-sm', 'md:max-w-md', 'break-words');
+        strong.textContent = aiSpeaker + ': ';
+        strong.classList.add('text-bubblegum-pink');
+        messageElement.appendChild(strong);
+        const span = document.createElement('span');
+        messageElement.appendChild(span);
+        messageWrapper.appendChild(messageElement);
+        if (typingIndicator) chatMessages.insertBefore(messageWrapper, typingIndicator); else chatMessages.appendChild(messageWrapper);
+        chatMessages.scrollTo({ top: chatMessages.scrollHeight, behavior: 'smooth' });
+        let i = 0;
+        function type() {
+            if (i <= message.length) {
+                span.textContent = message.slice(0, i);
+                chatMessages.scrollTo({ top: chatMessages.scrollHeight, behavior: 'smooth' });
+                i++;
+                setTimeout(type, 12 + Math.random() * 30); // randomize for realism
+            } else {
+                if (callback) callback();
+            }
+        }
+        type();
+    }
+    // Patch displayMessage to use typewriter for Bingus
     function displayMessage(sender, message) {
         console.log(`DEBUG: displayMessage CALLED. Sender: "${sender}", Message: "${message ? message.substring(0, 30) : 'null/empty'}..."`);
         if (!chatMessages) { console.error("ERROR in displayMessage: chatMessages element is null!"); return; }
         const aiSpeaker = 'Bingus ✨'; if (sender === aiSpeaker) hideTypingIndicator();
+        if (sender === aiSpeaker) {
+            typewriterMessage(sender, message);
+            return;
+        }
         const messageWrapper = document.createElement('div'); const messageElement = document.createElement('p'); const strong = document.createElement('strong');
         messageWrapper.classList.add('animate-fade-in-up', 'transition-all', 'duration-500');
         if (sender === 'You') {
@@ -95,7 +129,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (submitButton) { submitButton.disabled = false; submitButton.classList.remove('opacity-50', 'cursor-not-allowed'); submitButton.innerHTML = "✨ Let's Process! ✨"; }
     }
 
-    // --- Name Prompt Modal Logic ---
+    // --- Name Prompt Overlay: Ensure hidden by default and only shown when needed ---
     const namePromptOverlay = document.getElementById('name-prompt-overlay');
     const namePromptModal = document.getElementById('name-prompt-modal');
     const nameInput = document.getElementById('name-input');
@@ -120,6 +154,12 @@ document.addEventListener('DOMContentLoaded', () => {
             namePromptModal.classList.remove('opacity-100', 'scale-100', 'animate-scale-in', 'animate-scale-out');
             namePromptModal.classList.add('opacity-0', 'scale-95');
         }
+        // Fallback: forcibly remove overlay from DOM if still present after 1s
+        setTimeout(() => {
+            if (namePromptOverlay && !namePromptOverlay.classList.contains('hidden')) {
+                namePromptOverlay.classList.add('hidden');
+            }
+        }, 1000);
     }
     function askForNameIfNeeded() {
         userName = localStorage.getItem('bingusUserName') || null;
