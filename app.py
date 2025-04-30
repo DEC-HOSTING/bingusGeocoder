@@ -230,95 +230,80 @@ def get_processing_summary():
 
 @app.route('/chat', methods=['POST'])
 def chat():
-    """Handles user messages to the AI (using default model)."""
     print("DEBUG: /chat route handler CALLED")
-    if not ai_client: print("WARN: /chat - AI client N/A."); return jsonify({"response": "Bingus is napping... 😴"}), 503
+    if not ai_client:
+        print("WARN: /chat - AI client N/A.")
+        return jsonify({"response": "Bingus is napping... (AI not connected). Please check your API key and base URL."}), 503
 
-    data = request.get_json() # Use get_json() for better error handling
+    data = request.get_json()
     if not data:
         print("WARN: /chat - No JSON data received.")
-        return jsonify({"error": "Invalid request format"}), 400
+        return jsonify({"error": "Invalid request format (no JSON)"}), 400
 
     user_message = data.get('message')
-    user_name = data.get('userName') # Get user name from request
+    user_name = data.get('userName')
 
-    if not user_message: print("WARN: /chat - No msg."); return jsonify({"error": "No message provided"}), 400
+    if not user_message:
+        print("WARN: /chat - No msg.")
+        return jsonify({"error": "No message provided"}), 400
 
     print(f"DEBUG: /chat - Calling talk_to_bingus for user '{user_name}' message: '{user_message[:50]}...'")
-    # Pass user_name to talk_to_bingus
-    ai_response = talk_to_bingus(f"The user '{user_name or 'Mysterious Gorgeous'}' says: '{user_message}'. Respond in your yassified persona.", user_name=user_name)
+    try:
+        ai_response = talk_to_bingus(f"The user '{user_name or 'Mysterious Gorgeous'}' says: '{user_message}'. Respond in your yassified persona.", user_name=user_name)
+    except Exception as e:
+        print(f"ERROR: Exception in talk_to_bingus: {e}")
+        import traceback; traceback.print_exc()
+        return jsonify({"response": f"Bingus is having a meltdown! (Server error: {e})"}), 500
 
     print(f"DEBUG: /chat - Received response from talk_to_bingus: '{ai_response[:50]}...'")
-    # Basic check for common failure words - might need refinement
     failure_indicators = ["error", "failed", "sorry", "unable", "napping", "blank", "offline", "can't", "cannot"]
     if any(indicator in ai_response.lower() for indicator in failure_indicators):
         print(f"WARN: /chat - AI response indicates potential failure: '{ai_response}'")
-        # Return a generic error but still show the AI's attempt
-        return jsonify({"response": f"Bingus seems a bit frazzled... 😵‍💫 said: '{ai_response}'"}), 500 # Return 500 but include response
+        return jsonify({"response": f"Bingus seems a bit frazzled... 😵‍💫 said: '{ai_response}'"}), 500
 
     return jsonify({"response": ai_response})
 
-# --- NEW ROUTE for Image Generation ---
 @app.route('/generate-image', methods=['POST'])
 def generate_image():
-    """Handles requests to generate an image using AI."""
     print("DEBUG: /generate-image route handler CALLED")
     if not ai_client:
         print("WARN: /generate-image - AI client N/A.")
-        return jsonify({"error": "Bingus's art studio is closed... (AI N/A)"}), 503
+        return jsonify({"error": "Bingus's art studio is closed... (AI N/A, check API key/base URL)"}), 503
 
     data = request.get_json()
     if not data:
         print("WARN: /generate-image - No JSON data received.")
-        return jsonify({"error": "Invalid request format"}), 400
+        return jsonify({"error": "Invalid request format (no JSON)"}), 400
 
-    user_name = data.get('userName', 'Gorgeous') # Get user name for potential prompt use
+    user_name = data.get('userName', 'Gorgeous')
     image_prompt = (
         f"Create a fun, vibrant, slightly high-fashion, bubblegum-pink themed image "
         f"featuring a very cute, slightly overweight, hairless Sphynx cat (like Bingus!). "
         f"Make it fabulous and maybe a little sassy. Positive vibes only! ✨💅💖"
-        # Optional: Could add user_name or parts of their request here if desired
     )
     print(f"DEBUG: /generate-image - Requesting image with prompt: '{image_prompt[:100]}...'")
 
     try:
-        # Assuming Kluster AI uses the standard OpenAI image generation endpoint/syntax
         response = ai_client.images.generate(
-            model="dall-e-3", # Or whichever image model Kluster provides - NEEDS VERIFICATION
+            model="dall-e-3",
             prompt=image_prompt,
-            n=1,              # Generate one image
-            size="1024x1024",  # Specify image size
-            response_format="url" # Request image URL
+            n=1,
+            size="1024x1024",
+            response_format="url"
         )
         print("DEBUG: /generate-image - Raw image generation response received.")
-
-        # Extract the image URL (structure might vary based on actual API response)
         if response.data and len(response.data) > 0 and response.data[0].url:
             image_url = response.data[0].url
             print(f"SUCCESS: /generate-image - Generated image URL: {image_url}")
-            # Send back the URL and a success message from Bingus
             bingus_message = talk_to_bingus(f"Tell {user_name} you've created a fabulous image for them!", user_name=user_name)
             return jsonify({"response": bingus_message, "image_url": image_url})
         else:
             print("ERROR: /generate-image - Image URL not found in response.")
             return jsonify({"error": "Bingus's muse is hiding... couldn't get image URL."}), 500
-
-    except APIError as e:
-        print(f"🚨 ERROR: /generate-image - Kluster AI API Error! Status: {e.status_code}, Msg: {e.message}")
-        traceback.print_exc()
-        return jsonify({"error": f"Uh oh! Bingus API Error: {e.message}"}), 500
-    except AuthenticationError as e:
-        print(f"🚨 FATAL: /generate-image - Kluster AI Auth Failed! Err: {e}")
-        traceback.print_exc()
-        return jsonify({"error": "OMG DRAMA! 😱 AI Auth Error!"}), 500
-    except AttributeError:
-         print(f"🚨 ERROR: /generate-image - 'images.generate' might not be supported or client is wrong.")
-         traceback.print_exc()
-         return jsonify({"error": "Yikes! Bingus doesn't seem to have the right paintbrushes for images... (Feature not supported?)"}), 501 # 501 Not Implemented
     except Exception as e:
-        print(f"🚨 ERROR: Unexpected in /generate-image: {e}")
-        traceback.print_exc()
-        return jsonify({"error": f"Yikes, technical difficulties creating image! Err: {e}"}), 500
+        print(f"ERROR: Exception in image generation: {e}")
+        import traceback; traceback.print_exc()
+        return jsonify({"error": f"Bingus can't paint right now! (Server error: {e})"}), 500
 
 @app.route('/get-random-messages', methods=['GET'])
 def get_random_messages():

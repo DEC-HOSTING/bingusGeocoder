@@ -105,32 +105,28 @@ document.addEventListener('DOMContentLoaded', () => {
     function showNamePrompt() {
         if (namePromptOverlay && namePromptModal) {
             namePromptOverlay.classList.remove('hidden');
-            setTimeout(() => {
-                namePromptOverlay.classList.remove('opacity-0');
-                namePromptOverlay.classList.add('opacity-100');
-                namePromptModal.classList.remove('opacity-0', 'scale-95');
-                namePromptModal.classList.add('opacity-100', 'scale-100', 'animate-scale-in');
-                if (nameInput) nameInput.focus();
-            }, 100);
+            namePromptOverlay.classList.remove('opacity-0');
+            namePromptOverlay.classList.add('opacity-100');
+            namePromptModal.classList.remove('opacity-0', 'scale-95');
+            namePromptModal.classList.add('opacity-100', 'scale-100', 'animate-scale-in');
+            if (nameInput) nameInput.focus();
         }
     }
     function hideNamePrompt() {
         if (namePromptOverlay && namePromptModal) {
-            namePromptOverlay.classList.add('animate-fade-out');
-            namePromptModal.classList.add('animate-scale-out');
-            setTimeout(() => {
-                namePromptOverlay.classList.add('hidden');
-                namePromptOverlay.classList.remove('opacity-100', 'animate-fade-in', 'animate-fade-out');
-                namePromptOverlay.classList.add('opacity-0');
-                namePromptModal.classList.remove('opacity-100', 'scale-100', 'animate-scale-in', 'animate-scale-out');
-                namePromptModal.classList.add('opacity-0', 'scale-95');
-            }, 400);
+            namePromptOverlay.classList.add('hidden');
+            namePromptOverlay.classList.remove('opacity-100');
+            namePromptOverlay.classList.add('opacity-0');
+            namePromptModal.classList.remove('opacity-100', 'scale-100', 'animate-scale-in', 'animate-scale-out');
+            namePromptModal.classList.add('opacity-0', 'scale-95');
         }
     }
     function askForNameIfNeeded() {
         userName = localStorage.getItem('bingusUserName') || null;
         if (!userName) {
             showNamePrompt();
+        } else {
+            hideNamePrompt(); // Fallback: forcibly hide overlay if name is set
         }
     }
     if (submitNameButton) {
