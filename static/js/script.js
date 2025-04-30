@@ -129,7 +129,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (submitButton) { submitButton.disabled = false; submitButton.classList.remove('opacity-50', 'cursor-not-allowed'); submitButton.innerHTML = "✨ Let's Process! ✨"; }
     }
 
-    // --- Name Prompt Overlay: Ensure hidden by default and only shown when needed ---
+    // --- Name Prompt Overlay: Robust logic to show, hide, and store user name ---
     const namePromptOverlay = document.getElementById('name-prompt-overlay');
     const namePromptModal = document.getElementById('name-prompt-modal');
     const nameInput = document.getElementById('name-input');
@@ -143,7 +143,7 @@ document.addEventListener('DOMContentLoaded', () => {
             namePromptOverlay.classList.add('opacity-100');
             namePromptModal.classList.remove('opacity-0', 'scale-95');
             namePromptModal.classList.add('opacity-100', 'scale-100', 'animate-scale-in');
-            if (nameInput) nameInput.focus();
+            setTimeout(() => { if (nameInput) nameInput.focus(); }, 100);
         }
     }
     function hideNamePrompt() {
@@ -154,19 +154,13 @@ document.addEventListener('DOMContentLoaded', () => {
             namePromptModal.classList.remove('opacity-100', 'scale-100', 'animate-scale-in', 'animate-scale-out');
             namePromptModal.classList.add('opacity-0', 'scale-95');
         }
-        // Fallback: forcibly remove overlay from DOM if still present after 1s
-        setTimeout(() => {
-            if (namePromptOverlay && !namePromptOverlay.classList.contains('hidden')) {
-                namePromptOverlay.classList.add('hidden');
-            }
-        }, 1000);
     }
     function askForNameIfNeeded() {
         userName = localStorage.getItem('bingusUserName') || null;
         if (!userName) {
             showNamePrompt();
         } else {
-            hideNamePrompt(); // Fallback: forcibly hide overlay if name is set
+            hideNamePrompt();
         }
     }
     if (submitNameButton) {
@@ -180,6 +174,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 nameInput.classList.add('border-red-400');
                 setTimeout(() => nameInput.classList.remove('border-red-400'), 1000);
+                nameInput.focus();
             }
         });
     }
@@ -190,6 +185,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+    // On load, always check if we need to ask for the name
+    askForNameIfNeeded();
+
     // --- Enhanced Chat Message Sending ---
     async function sendChatMessage() {
         const message = chatInput?.value?.trim();
