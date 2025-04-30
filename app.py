@@ -175,19 +175,33 @@ def process_excel():
                 ai_assist_attempt += 1
                 if ai_client:
                     ai_prompt=f"Fix geocode fail: Addr='{address_value}', Postcode='{postcode_value}'. Reply ONLY with corrected address string or 'FAIL'."
-                    # AI Assist uses the default model (Llama 4) with fewer tokens and default temperature
-                    print(f"DEBUG (R{row_num}): Calling AI Assist using default model (Llama 4)...")
-                    ai_sugg_raw = talk_to_bingus(ai_prompt, max_resp_tokens=60)
+                    # AI Assist uses the default model (Qwen3) but with lower temp & fewer tokens for factual correction
+                    print(f"DEBUG (R{row_num}): Calling AI Assist (Model: Qwen3, Temp: 0.5)...")
+                    # Pass lower temperature and specific max tokens for this task
+                    ai_sugg_dict = talk_to_bingus(ai_prompt, max_resp_tokens=60, temperature=0.5)
+                    ai_sugg_raw = ai_sugg_dict.get("response") # Get the response part
                     print(f"DEBUG (R{row_num}): AI assist raw sugg: '{ai_sugg_raw}'")
                     ai_sugg = None
-                    # Filter suggestion
-                    if ai_sugg_raw and isinstance(ai_sugg_raw,str) and "FAIL" not in ai_sugg_raw.upper() and len(ai_sugg_raw.strip())>5 and not any(e in ai_sugg_raw.lower() for e in ["sorry","unable","<think>"]):
-                        ai_sugg=ai_sugg_raw.strip().strip('"\''); print(f"DEBUG(R{row_num}): Using AI sugg: '{ai_sugg}'"); print(f"INFO (R{row_num}): Re-trying geocode w/ AI suggestion...")
+                    # Filter suggestion (ensure ai_sugg_raw is a string before checks)
+                    if ai_sugg_raw and isinstance(ai_sugg_raw, str) and "FAIL" not in ai_sugg_raw.upper() and len(ai_sugg_raw.strip()) > 5 and not any(e in ai_sugg_raw.lower() for e in ["sorry", "unable", "<think>"]):
+                        ai_sugg = ai_sugg_raw.strip().strip('"\'')
+                        print(f"DEBUG(R{row_num}): Using AI sugg: '{ai_sugg}'")
+                        print(f"INFO (R{row_num}): Re-trying geocode w/ AI suggestion...")
                         lat_ai, lon_ai = get_coords(ai_sugg, "", row_num)
-                        if lat_ai is not None and lon_ai is not None: lat,lon=lat_ai,lon_ai; status="Success(AI Assist)"; ai_assist_success+=1; print(f"SUCCESS(R{row_num}): AI Assist OK!")
-                        else: status="Failed(AI Tried)"; print(f"INFO(R{row_num}): AI Assist Failed.")
-                    else: status="Failed(AI Skip/FAIL)"; print(f"INFO(R{row_num}): AI unusable sugg.")
-                else: status="Failed(AI N/A)"; print(f"WARN(R{row_num}): AI N/A.")
+                        if lat_ai is not None and lon_ai is not None:
+                            lat, lon = lat_ai, lon_ai
+                            status = "Success(AI Assist)"
+                            ai_assist_success += 1
+                            print(f"SUCCESS(R{row_num}): AI Assist OK!")
+                        else:
+                            status = "Failed(AI Tried)"
+                            print(f"INFO(R{row_num}): AI Assist Failed.")
+                    else:
+                        status = "Failed(AI Skip/FAIL)"
+                        print(f"INFO(R{row_num}): AI unusable sugg ('{ai_sugg_raw}').")
+                else:
+                    status = "Failed(AI N/A)"
+                    print(f"WARN(R{row_num}): AI N/A.")
 
             if lat is not None and lon is not None and status=="Failed": status="Success(Primary)"
             results.append({'latitude':lat,'longitude':lon}); geocoding_statuses.append(status); print(f"DEBUG(R{row_num}): Appended: Status:'{status}'")
@@ -230,45 +244,58 @@ def chat():
 
 @app.route('/generate-image', methods=['POST'])
 def generate_image():
+    """Generates an image using the AI client based on a fixed prompt."""
     print("DEBUG: /generate-image route handler CALLED")
+    data = request.get_json()
+    user_name = data.get('userName') or 'Gorgeous'
+
     if not ai_client:
         print("WARN: /generate-image - AI client N/A.")
-        return jsonify({"error": "Bingus's art studio is closed... (AI N/A, check API key/base URL)"}), 503
-
-    data = request.get_json()
-    if not data:
-        print("WARN: /generate-image - No JSON data received.")
-        return jsonify({"error": "Invalid request format (no JSON)"}), 400
-
-    user_name = data.get('userName', 'Gorgeous')
-    image_prompt = (
-        f"Create a fun, vibrant, slightly high-fashion, bubblegum-pink themed image "
-        f"featuring a very cute, slightly overweight, hairless Sphynx cat (like Bingus!). "
-        f"Make it fabulous and maybe a little sassy. Positive vibes only! ✨💅💖"
-    )
-    print(f"DEBUG: /generate-image - Requesting image with prompt: '{image_prompt[:100]}...'")
+        # Provide a Bingus-style error message
+        error_response = talk_to_bingus(f"Tell {user_name} the image generator isn't working right now.", user_name)
+        return jsonify({"error": "AI offline... Bingus's art studio is closed...", "response": error_response}), 503 # Service Unavailable
 
     try:
+        # Fixed prompt for generating Bingus
+        image_prompt = "A cute, slightly chubby, hairless sphynx cat (Bingus) wearing a tiny pink bow tie, digital art style, vibrant colors."
+        print(f"DEBUG: Generating image with prompt: '{image_prompt}'")
+
+        # --- Attempt to call the image generation endpoint ---
+        # NOTE: Assuming Kluster AI uses an OpenAI-compatible API structure.
+        # The exact endpoint and parameters might differ for Kluster.
+        # The error message suggested POST /v1/images/generations
         response = ai_client.images.generate(
-            model="dall-e-3",
+            model="sdxl-lightning", # Or another suitable image model available via Kluster
             prompt=image_prompt,
-            n=1,
-            size="1024x1024",
-            response_format="url"
+            n=1, # Generate one image
+            size="512x512" # Specify image size if needed
         )
-        print("DEBUG: /generate-image - Raw image generation response received.")
+
+        print(f"DEBUG: Image generation API response: {response}")
+
         if response.data and len(response.data) > 0 and response.data[0].url:
             image_url = response.data[0].url
-            print(f"SUCCESS: /generate-image - Generated image URL: {image_url}")
-            bingus_message = talk_to_bingus(f"Tell {user_name} you've created a fabulous image for them!", user_name=user_name)
-            return jsonify({"response": bingus_message, "image_url": image_url})
+            print(f"SUCCESS: Image generated: {image_url}")
+            # Get a Bingus comment about the image
+            bingus_comment = talk_to_bingus(f"Comment on the image you just generated for {user_name}. The prompt was: {image_prompt}", user_name)
+            return jsonify({"image_url": image_url, "response": bingus_comment})
         else:
-            print("ERROR: /generate-image - Image URL not found in response.")
-            return jsonify({"error": "Bingus's muse is hiding... couldn't get image URL."}), 500
+            print("ERROR: Image generation failed - No URL in response.")
+            error_response = talk_to_bingus(f"Tell {user_name} you tried to draw but couldn't finish the picture.", user_name)
+            return jsonify({"error": "Image generation failed (no URL).", "response": error_response}), 500
+
     except Exception as e:
-        print(f"ERROR: Exception in image generation: {e}")
-        import traceback; traceback.print_exc()
-        return jsonify({"error": f"Bingus can't paint right now! (Server error: {e})"}), 500
+        print(f"🚨 ERROR: Unexpected error in /generate-image: {e}")
+        traceback.print_exc()
+        # Check if it's the specific 404 error from the screenshot
+        if "404" in str(e) and "images/generations" in str(e):
+             error_message = "Bingus can't find the magic paint right now! (Image endpoint missing?)"
+             bingus_comment = talk_to_bingus(f"Tell {user_name} you couldn't find the image tool.", user_name)
+        else:
+            error_message = f"Bingus had an art emergency! ({type(e).__name__})"
+            bingus_comment = talk_to_bingus(f"Tell {user_name} there was an unexpected problem while drawing.", user_name)
+
+        return jsonify({"error": error_message, "response": bingus_comment}), 500
 
 @app.route('/get-random-messages', methods=['GET'])
 def get_random_messages():

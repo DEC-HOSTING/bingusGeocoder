@@ -83,16 +83,16 @@ function maybeShowFunFact() {
 function showQuickReplies(options) {
     if (!chatMessages) return;
     const quickReplyDiv = document.createElement('div');
-    quickReplyDiv.className = 'flex gap-2 mt-2 mb-2';
+    quickReplyDiv.className = 'flex flex-wrap gap-2 mt-2 mb-2'; // Added flex-wrap
     options.forEach(opt => {
         const btn = document.createElement('button');
         btn.className = 'bg-bubblegum-pink text-white px-3 py-1 rounded-full font-semibold hover:scale-105 transform transition duration-200 shadow-sm text-sm';
         btn.textContent = opt.label;
         btn.onclick = () => {
-            displayMessage('You', opt.text);
-            chatInput.value = opt.text;
-            sendChatMessage();
-            quickReplyDiv.remove();
+            // displayMessage('You', opt.text); // REMOVED: This caused the duplicate message
+            chatInput.value = opt.text; // Set the input value
+            sendChatMessage(); // Send the message (which will display it)
+            quickReplyDiv.remove(); // Remove the quick replies
         };
         quickReplyDiv.appendChild(btn);
     });
@@ -171,96 +171,191 @@ function hideThinkingBubble() {
     }, 300); // Match animation duration
 }
 
-// Patch displayMessage for Bingus to add emotes, sound, fun facts, and quick replies
-function displayMessage(sender, message, opts = {}) {
-    const aiSpeaker = 'Bingus ✨';
-    if (!chatMessages) { console.error("ERROR in displayMessage: chatMessages element is null!"); return; }
-
-    // Check if the sender is the AI to trigger typewriter
-    if (sender === aiSpeaker) {
-        hideTypingIndicator(); // Hide indicator if it was shown
-        bingusMessageCount++;
-        let emote = getRandomEmote();
-        let msgWithEmote = message;
-        // Add emote only if it's not an image tag already
-        if (!message.includes('<img') && Math.random() < 0.7) {
-            msgWithEmote = emote + ' ' + message;
-        }
-        playBingusSound();
-        // Call typewriterMessage for AI messages
-        typewriterMessage(sender, msgWithEmote, () => {
-            // Optional callback after typing finishes
-            maybeShowFunFact(); // Show fun fact after message types out
-            if (!opts.noQuickReplies && Math.random() < 0.7) {
-                showQuickReplies([
-                     { label: 'Slay!', text: 'Slay!' },
-                     { label: 'Tell me more!', text: 'Tell me more, Bingus!' },
-                     { label: 'Draw Bingus!', text: 'Draw Bingus!' }
-                ]);
-            }
-        });
-        return; // Important: Stop execution here for AI messages handled by typewriter
-    }
-
-    // --- This part handles non-AI messages (like 'You') ---
-    const messageWrapper = document.createElement('div');
-    const messageElement = document.createElement('p');
-    const strong = document.createElement('strong');
-    messageWrapper.classList.add('animate-fade-in-up', 'transition-all', 'duration-500');
-
-    if (sender === 'You') {
-        messageElement.classList.add('text-right', 'ml-8', 'bg-purple-100', 'p-3', 'rounded-lg', 'rounded-br-none', 'shadow-sm', 'inline-block', 'max-w-xs', 'sm:max-w-sm', 'md:max-w-md', 'break-words');
-        strong.textContent = 'You: '; strong.classList.add('text-deep-purple'); messageWrapper.classList.add('text-right');
-    } else {
-         // Fallback for other senders (though currently only 'You' and 'Bingus ✨' are used)
-         // This part should technically not be reached if sender === aiSpeaker check works
-        messageElement.classList.add('text-left', 'mr-8', 'bg-gray-200', 'p-3', 'rounded-lg', 'rounded-bl-none', 'shadow-sm', 'inline-block', 'max-w-xs', 'sm:max-w-sm', 'md:max-w-md', 'break-words');
-        strong.textContent = sender + ': '; strong.classList.add('text-gray-700'); messageWrapper.classList.add('text-left');
-    }
-
-    messageElement.appendChild(strong);
-    messageElement.appendChild(document.createTextNode(message || ""));
-    messageWrapper.appendChild(messageElement);
-
-    // --- FIX: Always append the message to the chatMessages container ---
-    if (chatMessages) {
-        chatMessages.appendChild(messageWrapper);
-        chatMessages.scrollTo({ top: chatMessages.scrollHeight, behavior: 'smooth' });
-        console.log("DEBUG: Non-AI Message appended to chat window.");
-    } else {
-        console.error("ERROR: chatMessages element missing when trying to append non-AI message.");
-    }
-    // --- End FIX ---
+// Function to display a loading message
+function showLoadingMessage(text) {
+    const loadingId = 'loading-' + Date.now(); // Unique ID for the loading message
+    displayMessage('Bingus', `<div id="${loadingId}" class="animate-pulse">${text}</div>`, null, false, loadingId);
+    return loadingId;
 }
 
-    function clearChatLoading() { console.log("DEBUG: clearChatLoading CALLED."); const loading = chatMessages?.querySelector('p.italic'); if (loading) { loading.remove(); console.log("DEBUG: 'Loading chat...' removed."); } else { console.log("DEBUG: 'Loading chat...' not found."); } }
-
-    // --- Progress Functions ---
-    function clearFakeProgress() { if (fakeProgressInterval) { clearInterval(fakeProgressInterval); fakeProgressInterval = null; console.log("DEBUG: Cleared fake progress interval."); } }
-    function showProgress() {
-        console.log("DEBUG: showProgress called"); clearFakeProgress();
-        if (!progressBarFill) { console.error("ERROR: Progress bar fill element not found!"); } else { progressBarFill.style.transitionDuration = '0ms'; progressBarFill.style.width = '0%'; void progressBarFill.offsetWidth; progressBarFill.style.transitionDuration = '150ms'; console.log("DEBUG: Progress bar reset to 0%"); }
-        if(progressIndicator) progressIndicator.classList.remove('hidden'); if(resultArea) resultArea.classList.add('hidden'); if(errorArea) errorArea.classList.add('hidden');
-        if(submitButton) { submitButton.disabled = true; submitButton.classList.add('opacity-50', 'cursor-not-allowed'); submitButton.textContent = "Processing..."; }
-        let startTime = Date.now(); console.log("DEBUG: Starting fake progress interval...");
-        fakeProgressInterval = setInterval(() => {
-            let elapsedTime = Date.now() - startTime; let progressPercent = (elapsedTime / ESTIMATED_PROCESSING_TIME_MS) * 100; let displayPercent = Math.min(progressPercent, 95);
-            console.log(`DEBUG Interval: Elapsed=${elapsedTime}ms, Progress=${progressPercent.toFixed(1)}%, Display=${displayPercent.toFixed(1)}%`);
-            if (progressBarFill) { progressBarFill.style.width = displayPercent + '%'; } else { console.error("ERROR Interval: Progress bar fill missing!"); clearFakeProgress(); return; }
-            if (elapsedTime >= ESTIMATED_PROCESSING_TIME_MS) { console.log("DEBUG: Fake progress time elapsed."); clearFakeProgress(); }
-        }, 150);
+// Function to remove a loading message
+function removeLoadingMessage(loadingId) {
+    const loadingElement = document.getElementById(loadingId);
+    if (loadingElement) {
+        loadingElement.closest('.message-container').remove(); // Remove the entire message container
     }
-    function hideProgress() { console.log("DEBUG: hideProgress called"); clearFakeProgress(); if(progressIndicator) progressIndicator.classList.add('hidden'); if (submitButton) { submitButton.disabled = false; submitButton.classList.remove('opacity-50', 'cursor-not-allowed'); submitButton.innerHTML = "✨ Let's Process! ✨"; } }
-    function showError(message, aiMessage = null) { console.log("DEBUG: showError called"); clearFakeProgress(); hideTypingIndicator(); hideProgress(); if(errorMessage) errorMessage.textContent = message; if(errorArea) errorArea.classList.remove('hidden'); if(resultArea) resultArea.classList.add('hidden'); const aiSpeaker = 'Bingus ✨'; if (aiMessage) displayMessage(aiSpeaker, aiMessage); else displayMessage(aiSpeaker, "Oh no, drama!"); if(errorArea) errorArea.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
-    function showResult(fileBlob, filename) {
-        console.log("DEBUG: showResult called"); clearFakeProgress(); hideTypingIndicator();
-        if (progressBarFill) { progressBarFill.style.transitionDuration = '300ms'; progressBarFill.style.width = '100%'; console.log("DEBUG: Set progress bar to 100%"); }
-        setTimeout(() => { if(progressIndicator) progressIndicator.classList.add('hidden'); }, 500);
-        if(resultArea) resultArea.classList.remove('hidden'); if(errorArea) errorArea.classList.add('hidden');
-        const url = URL.createObjectURL(fileBlob); if(downloadLink) { downloadLink.href = url; downloadLink.download = filename || 'processed.xlsx'; }
-        fetchProcessingSummary(); const aiSpeaker = 'Bingus ✨'; displayMessage(aiSpeaker, "YAS QUEEN! 👑 File processed! Download below & check report!");
-        if(resultArea) resultArea.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        if (submitButton) { submitButton.disabled = false; submitButton.classList.remove('opacity-50', 'cursor-not-allowed'); submitButton.innerHTML = "✨ Let's Process! ✨"; }
+}
+
+// Function to specifically display and manage the image loading indicator
+function showImageLoadingIndicator() {
+    const loadingId = 'image-loading-indicator';
+    removeImageLoadingIndicator();
+    displayMessage('Bingus', '🎨 Bingus is grabbing the magic paint...', null, false, loadingId);
+}
+
+// Function to remove the image loading indicator
+function removeImageLoadingIndicator() {
+    const loadingIndicator = document.getElementById('image-loading-indicator');
+    if (loadingIndicator) {
+        loadingIndicator.remove();
+    }
+}
+
+// --- Enhanced Chat Message Sending ---
+async function sendChatMessage() {
+    const messageText = chatInput.value.trim();
+    const userName = localStorage.getItem('bingusUserName') || 'Gorgeous'; // Get username
+
+    if (!messageText) return;
+
+    displayMessage('You', messageText);
+    chatInput.value = '';
+    removeQuickReplies(); // Remove any existing quick replies
+
+    // --- Image Generation Request ---
+    if (messageText.toLowerCase() === 'draw bingus!') {
+        showImageLoadingIndicator(); // Show loading indicator
+        try {
+            const response = await fetch('/generate-image', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userName: userName }) // Send username
+            });
+            removeImageLoadingIndicator(); // Remove indicator on response
+
+            const data = await response.json();
+
+            if (response.ok && data.image_url) {
+                // Display the image and Bingus's comment
+                displayMessage('Bingus', data.response?.response || "Look what I made!", data.image_url);
+            } else {
+                // Display Bingus's error message from the backend
+                const errorMessage = data.response?.response || data.error || "Oops, my paws slipped!";
+                displayMessage('Bingus', `😿 ${errorMessage}`);
+            }
+        } catch (error) {
+            console.error('Error generating image:', error);
+            removeImageLoadingIndicator(); // Remove indicator on error
+            displayMessage('Bingus', '😿 Oh dear, the connection fizzled! Could not generate image.');
+        }
+        return; // Stop further processing for image request
+    }
+
+    // --- Standard Chat Request ---
+    const thinkingId = `thinking-${Date.now()}`;
+    displayMessage('Bingus', '', null, true, thinkingId); // Display thinking indicator
+
+    try {
+        const response = await fetch('/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: messageText, userName: userName }) // Send username
+        });
+
+        const thinkingIndicator = document.getElementById(thinkingId);
+        if (thinkingIndicator) thinkingIndicator.remove();
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            const errorMsg = errorData.response || `Uh oh! Server hiccup (${response.status})`;
+            console.error('Chat API Error:', response.status, errorData);
+            displayMessage('Bingus', `😿 ${errorMsg}`);
+            return;
+        }
+
+        const data = await response.json();
+
+        if (data.response) {
+            displayMessage('Bingus', data.response);
+            if (data.thinking) {
+                console.log("Bingus Thinking:", data.thinking);
+            }
+        } else if (data.error) {
+            displayMessage('Bingus', `😿 ${data.error}`);
+        } else {
+            displayMessage('Bingus', 'Bingus seems lost for words...');
+        }
+
+    } catch (error) {
+        console.error('Error sending message:', error);
+        const thinkingIndicator = document.getElementById(thinkingId);
+        if (thinkingIndicator) thinkingIndicator.remove();
+        displayMessage('Bingus', '😿 Yikes! Connection trouble. Check the console, maybe?');
+    }
+}
+
+// --- Patch displayMessage for Bingus to add emotes, sound, fun facts, and quick replies ---
+function displayMessage(sender, message, imageUrl = null, isThinking = false, messageId = null) {
+    if (!chatMessages) return;
+    const messageContainer = document.createElement('div');
+    messageContainer.className = `message-container flex mb-3 ${sender === 'You' ? 'justify-end' : 'justify-start'}`;
+
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `message p-3 rounded-lg max-w-xs md:max-w-md lg:max-w-lg shadow ${sender === 'You' ? 'bg-bubblegum-purple text-white' : 'bg-white text-gray-800'}`;
+
+    if (messageId) {
+        messageContainer.id = messageId;
+    }
+
+    const senderSpan = document.createElement('span');
+    senderSpan.className = 'font-bold block mb-1';
+    senderSpan.textContent = sender + ':';
+
+    const contentDiv = document.createElement('div');
+    contentDiv.className = 'content';
+
+    if (isThinking) {
+        contentDiv.innerHTML = `<span class="thinking-indicator">✨ Bingus is thinking... ✨</span>`;
+    } else if (imageUrl) {
+        const imgElement = document.createElement('img');
+        imgElement.src = imageUrl;
+        imgElement.alt = "Bingus's masterpiece!";
+        imgElement.classList.add('generated-image');
+        contentDiv.appendChild(imgElement);
+        if (message && message.trim() !== "") {
+            const textElement = document.createElement('p');
+            textElement.textContent = message;
+            contentDiv.appendChild(textElement);
+        }
+    } else if (message) {
+        let formattedMessage = message.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+        formattedMessage = formattedMessage.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+        contentDiv.innerHTML = formattedMessage;
+    }
+
+    messageDiv.appendChild(senderSpan);
+    messageDiv.appendChild(contentDiv);
+    messageContainer.appendChild(messageDiv);
+    chatMessages.appendChild(messageContainer);
+    chatMessages.scrollTo({ top: chatMessages.scrollHeight, behavior: 'smooth' });
+}
+
+// --- Progress Functions ---
+function clearFakeProgress() { if (fakeProgressInterval) { clearInterval(fakeProgressInterval); fakeProgressInterval = null; console.log("DEBUG: Cleared fake progress interval."); } }
+function showProgress() {
+    console.log("DEBUG: showProgress called"); clearFakeProgress();
+    if (!progressBarFill) { console.error("ERROR: Progress bar fill element not found!"); } else { progressBarFill.style.transitionDuration = '0ms'; progressBarFill.style.width = '0%'; void progressBarFill.offsetWidth; progressBarFill.style.transitionDuration = '150ms'; console.log("DEBUG: Progress bar reset to 0%"); }
+    if(progressIndicator) progressIndicator.classList.remove('hidden'); if(resultArea) resultArea.classList.add('hidden'); if(errorArea) errorArea.classList.add('hidden');
+    if(submitButton) { submitButton.disabled = true; submitButton.classList.add('opacity-50', 'cursor-not-allowed'); submitButton.textContent = "Processing..."; }
+    let startTime = Date.now(); console.log("DEBUG: Starting fake progress interval...");
+    fakeProgressInterval = setInterval(() => {
+        let elapsedTime = Date.now() - startTime; let progressPercent = (elapsedTime / ESTIMATED_PROCESSING_TIME_MS) * 100; let displayPercent = Math.min(progressPercent, 95);
+        console.log(`DEBUG Interval: Elapsed=${elapsedTime}ms, Progress=${progressPercent.toFixed(1)}%, Display=${displayPercent.toFixed(1)}%`);
+        if (progressBarFill) { progressBarFill.style.width = displayPercent + '%'; } else { console.error("ERROR Interval: Progress bar fill missing!"); clearFakeProgress(); return; }
+        if (elapsedTime >= ESTIMATED_PROCESSING_TIME_MS) { console.log("DEBUG: Fake progress time elapsed."); clearFakeProgress(); }
+    }, 150);
+}
+function hideProgress() { console.log("DEBUG: hideProgress called"); clearFakeProgress(); if(progressIndicator) progressIndicator.classList.add('hidden'); if (submitButton) { submitButton.disabled = false; submitButton.classList.remove('opacity-50', 'cursor-not-allowed'); submitButton.innerHTML = "✨ Let's Process! ✨"; } }
+function showError(message, aiMessage = null) { console.log("DEBUG: showError called"); clearFakeProgress(); hideTypingIndicator(); hideProgress(); if(errorMessage) errorMessage.textContent = message; if(errorArea) errorArea.classList.remove('hidden'); if(resultArea) resultArea.classList.add('hidden'); const aiSpeaker = 'Bingus ✨'; if (aiMessage) displayMessage(aiSpeaker, aiMessage); else displayMessage(aiSpeaker, "Oh no, drama!"); if(errorArea) errorArea.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+function showResult(fileBlob, filename) {
+    console.log("DEBUG: showResult called"); clearFakeProgress(); hideTypingIndicator();
+    if (progressBarFill) { progressBarFill.style.transitionDuration = '300ms'; progressBarFill.style.width = '100%'; console.log("DEBUG: Set progress bar to 100%"); }
+    setTimeout(() => { if(progressIndicator) progressIndicator.classList.add('hidden'); }, 500);
+    if(resultArea) resultArea.classList.remove('hidden'); if(errorArea) errorArea.classList.add('hidden');
+    const url = URL.createObjectURL(fileBlob); if(downloadLink) { downloadLink.href = url; downloadLink.download = filename || 'processed.xlsx'; }
+    fetchProcessingSummary(); const aiSpeaker = 'Bingus ✨'; displayMessage(aiSpeaker, "YAS QUEEN! 👑 File processed! Download below & check report!");
+    if(resultArea) resultArea.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (submitButton) { submitButton.disabled = false; submitButton.classList.remove('opacity-50', 'cursor-not-allowed'); submitButton.innerHTML = "✨ Let's Process! ✨"; }
     }
 
     // --- Name Prompt Overlay: Robust logic to show, hide, and store user name ---
@@ -321,180 +416,6 @@ function displayMessage(sender, message, opts = {}) {
     }
     // On load, always check if we need to ask for the name
     askForNameIfNeeded();
-
-    // --- Enhanced Chat Message Sending ---
-    async function sendChatMessage() {
-        const message = chatInput?.value?.trim();
-        if (!message) return;
-        displayMessage('You', message);
-        chatInput.value = '';
-        chatInput.focus();
-        showTypingIndicator(); // Show fancy typing indicator immediately
-        hideThinkingBubble(); // Ensure any previous bubble is hidden
-
-        // Detect image generation intent (keep existing logic)
-        const imageTriggers = [
-            'draw bingus', 'generate image', 'show me bingus', 'make a picture', 'create an image', 'fat sphynx cat', 'cat pic', 'cat image', 'bingus art', 'picture of bingus'
-        ];
-        const lowerMsg = message.toLowerCase();
-        if (imageTriggers.some(trigger => lowerMsg.includes(trigger))) {
-            await generateBingusImage(); // This function should also hide typing indicator
-            return;
-        }
-
-        try {
-            const response = await fetch('/chat', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                body: JSON.stringify({ message: message, userName: userName }),
-            });
-            const responseText = await response.text();
-            console.log(`DEBUG: /chat response Status: ${response.status}, OK: ${response.ok}`);
-            console.log(`DEBUG: /chat response text: ${responseText}`);
-
-            if (!response.ok) {
-                let eData = { error: `Server error:${response.status}`, message: responseText };
-                try { eData = JSON.parse(responseText); } catch (e) { }
-                throw new Error(eData.error || eData.message || `Server error:${response.status}`);
-            }
-
-            const data = JSON.parse(responseText);
-            console.log("DEBUG: Parsed /chat data:", data);
-
-            // --- NEW: Handle Thinking Bubble --- 
-            if (data.thinking) {
-                displayThinkingBubble(data.thinking);
-                // Wait a bit before showing the final response
-                await new Promise(resolve => setTimeout(resolve, 1500 + Math.random() * 1000)); // Wait 1.5-2.5 seconds
-                hideThinkingBubble();
-                // Short delay before typing starts after bubble hides
-                await new Promise(resolve => setTimeout(resolve, 300)); 
-            }
-            // --- End NEW --- 
-
-            hideTypingIndicator(); // Hide indicator *before* showing the final message
-            const aiSpeaker = 'Bingus ✨';
-
-            if (data.response) {
-                displayMessage(aiSpeaker, data.response);
-            } else if (data.error) {
-                // Display error from backend if available
-                displayMessage(aiSpeaker, `Oopsie! ${data.error}`);
-            } else {
-                displayMessage(aiSpeaker, "Hmm, unexpected response...");
-            }
-
-        } catch (error) {
-            console.error("ERROR in sendChatMessage fetch/processing:", error);
-            hideThinkingBubble(); // Hide bubble on error too
-            hideTypingIndicator();
-            displayMessage('Bingus ✨', `Connection fuzzy! (${error.message})`);
-        }
-    }
-    // --- Bingus Image Generation ---
-    async function generateBingusImage() {
-        showTypingIndicator();
-        try {
-            const response = await fetch('/generate-image', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                body: JSON.stringify({ userName: userName }),
-            });
-            const responseText = await response.text();
-            if (!response.ok) {
-                let eData = { error: `Server error:${response.status}`, message: responseText };
-                try { eData = JSON.parse(responseText); } catch (e) { }
-                throw new Error(eData.error || eData.message || `Server error:${response.status}`);
-            }
-            const data = JSON.parse(responseText);
-            hideTypingIndicator();
-            const aiSpeaker = 'Bingus ✨';
-            if (data.image_url) {
-                // Show Bingus's message and the image
-                if (data.response) displayMessage(aiSpeaker, data.response);
-                const messageWrapper = document.createElement('div');
-                messageWrapper.classList.add('animate-fade-in-up', 'transition-all', 'duration-500', 'text-left');
-                const imageContainer = document.createElement('div');
-                imageContainer.classList.add('generated-image-container', 'mt-2');
-                const img = document.createElement('img');
-                img.src = data.image_url;
-                img.alt = 'Generated Bingus Image';
-                img.className = 'max-w-xs rounded-lg shadow-md';
-                const downloadLink = document.createElement('a');
-                downloadLink.href = data.image_url;
-                downloadLink.download = 'bingus_creation.png';
-                downloadLink.className = 'download-image-link text-bubblegum-pink underline ml-2';
-                downloadLink.textContent = 'Download Image';
-                imageContainer.appendChild(img);
-                imageContainer.appendChild(document.createElement('br'));
-                imageContainer.appendChild(downloadLink);
-                messageWrapper.appendChild(imageContainer);
-                chatMessages.appendChild(messageWrapper);
-                chatMessages.scrollTo({ top: chatMessages.scrollHeight, behavior: 'smooth' });
-            } else if (data.error) {
-                displayMessage(aiSpeaker, `Oopsie! ${data.error}`);
-            } else {
-                displayMessage(aiSpeaker, "Hmm, Bingus couldn't paint this time...");
-            }
-        } catch (error) {
-            hideTypingIndicator();
-            displayMessage('Bingus ✨', `Image magic failed! (${error.message})`);
-        }
-    }
-
-    // --- Progress Functions ---
-    function clearFakeProgress() { if (fakeProgressInterval) { clearInterval(fakeProgressInterval); fakeProgressInterval = null; console.log("DEBUG: Cleared fake progress interval."); } }
-    function showProgress() {
-        console.log("DEBUG: showProgress called"); clearFakeProgress();
-        if (!progressBarFill) { console.error("ERROR: Progress bar fill element not found!"); } else { progressBarFill.style.transitionDuration = '0ms'; progressBarFill.style.width = '0%'; void progressBarFill.offsetWidth; progressBarFill.style.transitionDuration = '150ms'; console.log("DEBUG: Progress bar reset to 0%"); }
-        if(progressIndicator) progressIndicator.classList.remove('hidden'); if(resultArea) resultArea.classList.add('hidden'); if(errorArea) errorArea.classList.add('hidden');
-        if(submitButton) { submitButton.disabled = true; submitButton.classList.add('opacity-50', 'cursor-not-allowed'); submitButton.textContent = "Processing..."; }
-        let startTime = Date.now(); console.log("DEBUG: Starting fake progress interval...");
-        fakeProgressInterval = setInterval(() => {
-            let elapsedTime = Date.now() - startTime; let progressPercent = (elapsedTime / ESTIMATED_PROCESSING_TIME_MS) * 100; let displayPercent = Math.min(progressPercent, 95);
-            console.log(`DEBUG Interval: Elapsed=${elapsedTime}ms, Progress=${progressPercent.toFixed(1)}%, Display=${displayPercent.toFixed(1)}%`);
-            if (progressBarFill) { progressBarFill.style.width = displayPercent + '%'; } else { console.error("ERROR Interval: Progress bar fill missing!"); clearFakeProgress(); return; }
-            if (elapsedTime >= ESTIMATED_PROCESSING_TIME_MS) { console.log("DEBUG: Fake progress time elapsed."); clearFakeProgress(); }
-        }, 150);
-    }
-    function hideProgress() { console.log("DEBUG: hideProgress called"); clearFakeProgress(); if(progressIndicator) progressIndicator.classList.add('hidden'); if (submitButton) { submitButton.disabled = false; submitButton.classList.remove('opacity-50', 'cursor-not-allowed'); submitButton.innerHTML = "✨ Let's Process! ✨"; } }
-    function showError(message, aiMessage = null) { console.log("DEBUG: showError called"); clearFakeProgress(); hideTypingIndicator(); hideProgress(); if(errorMessage) errorMessage.textContent = message; if(errorArea) errorArea.classList.remove('hidden'); if(resultArea) resultArea.classList.add('hidden'); const aiSpeaker = 'Bingus ✨'; if (aiMessage) displayMessage(aiSpeaker, aiMessage); else displayMessage(aiSpeaker, "Oh no, drama!"); if(errorArea) errorArea.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
-    function showResult(fileBlob, filename) {
-        console.log("DEBUG: showResult called"); clearFakeProgress(); hideTypingIndicator();
-        if (progressBarFill) { progressBarFill.style.transitionDuration = '300ms'; progressBarFill.style.width = '100%'; console.log("DEBUG: Set progress bar to 100%"); }
-        setTimeout(() => { if(progressIndicator) progressIndicator.classList.add('hidden'); }, 500);
-        if(resultArea) resultArea.classList.remove('hidden'); if(errorArea) errorArea.classList.add('hidden');
-        const url = URL.createObjectURL(fileBlob); if(downloadLink) { downloadLink.href = url; downloadLink.download = filename || 'processed.xlsx'; }
-        fetchProcessingSummary(); const aiSpeaker = 'Bingus ✨'; displayMessage(aiSpeaker, "YAS QUEEN! 👑 File processed! Download below & check report!");
-        if(resultArea) resultArea.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        if (submitButton) { submitButton.disabled = false; submitButton.classList.remove('opacity-50', 'cursor-not-allowed'); submitButton.innerHTML = "✨ Let's Process! ✨"; }
-    }
-
-    // --- AI Chat Functions ---
-    async function sendChatMessage() {
-        console.log("DEBUG: sendChatMessage function CALLED!"); const message = chatInput?.value?.trim(); console.log(`DEBUG: Message to send: "${message}"`); if (!message) { console.log("DEBUG: Message empty."); return; } if (!chatInput) { console.error("ERROR: chatInput null!"); return; }
-        displayMessage('You', message); chatInput.value = ''; chatInput.focus(); showTypingIndicator(); console.log(`DEBUG: Attempting to fetch /chat`);
-        // Detect image generation intent
-        const imageTriggers = [
-            'draw bingus', 'generate image', 'show me bingus', 'make a picture', 'create an image', 'fat sphynx cat', 'cat pic', 'cat image', 'bingus art', 'picture of bingus'
-        ];
-        const lowerMsg = message.toLowerCase();
-        if (imageTriggers.some(trigger => lowerMsg.includes(trigger))) {
-            await generateBingusImage();
-            return;
-        }
-        try {
-            const response = await fetch('/chat', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                body: JSON.stringify({ message: message, userName: userName }),
-            });
-            console.log(`DEBUG: /chat response Status: ${response.status}, OK: ${response.ok}`); const responseText = await response.text(); console.log(`DEBUG: /chat response text: ${responseText}`);
-            if (!response.ok) { let eData={error:`Server error:${response.status}`,message:responseText}; try{eData=JSON.parse(responseText);}catch(e){} throw new Error(eData.error||eData.message||`Server error:${response.status}`); }
-            const data = JSON.parse(responseText); console.log("DEBUG: Parsed /chat data:", data); hideTypingIndicator(); const aiSpeaker = 'Bingus ✨';
-            if (data.response) { displayMessage(aiSpeaker, data.response); } else if (data.error) { displayMessage(aiSpeaker, `Oopsie! ${data.error}`); } else { displayMessage(aiSpeaker, "Hmm, unexpected response..."); }
-        } catch (error) { console.error("ERROR in sendChatMessage fetch/processing:", error); hideTypingIndicator(); displayMessage('Bingus ✨', `Connection fuzzy! (${error.message})`); }
-    }
 
     // --- Random Pop-up Logic ---
     async function fetchRandomMessages() {
