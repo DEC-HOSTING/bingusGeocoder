@@ -95,12 +95,207 @@ document.addEventListener('DOMContentLoaded', () => {
         if (submitButton) { submitButton.disabled = false; submitButton.classList.remove('opacity-50', 'cursor-not-allowed'); submitButton.innerHTML = "✨ Let's Process! ✨"; }
     }
 
+    // --- Name Prompt Modal Logic ---
+    const namePromptOverlay = document.getElementById('name-prompt-overlay');
+    const namePromptModal = document.getElementById('name-prompt-modal');
+    const nameInput = document.getElementById('name-input');
+    const submitNameButton = document.getElementById('submit-name-button');
+    let userName = null;
+
+    function showNamePrompt() {
+        if (namePromptOverlay && namePromptModal) {
+            namePromptOverlay.classList.remove('hidden');
+            setTimeout(() => {
+                namePromptOverlay.classList.remove('opacity-0');
+                namePromptOverlay.classList.add('opacity-100');
+                namePromptModal.classList.remove('opacity-0', 'scale-95');
+                namePromptModal.classList.add('opacity-100', 'scale-100', 'animate-scale-in');
+                if (nameInput) nameInput.focus();
+            }, 100);
+        }
+    }
+    function hideNamePrompt() {
+        if (namePromptOverlay && namePromptModal) {
+            namePromptOverlay.classList.add('animate-fade-out');
+            namePromptModal.classList.add('animate-scale-out');
+            setTimeout(() => {
+                namePromptOverlay.classList.add('hidden');
+                namePromptOverlay.classList.remove('opacity-100', 'animate-fade-in', 'animate-fade-out');
+                namePromptOverlay.classList.add('opacity-0');
+                namePromptModal.classList.remove('opacity-100', 'scale-100', 'animate-scale-in', 'animate-scale-out');
+                namePromptModal.classList.add('opacity-0', 'scale-95');
+            }, 400);
+        }
+    }
+    function askForNameIfNeeded() {
+        userName = localStorage.getItem('bingusUserName') || null;
+        if (!userName) {
+            showNamePrompt();
+        }
+    }
+    if (submitNameButton) {
+        submitNameButton.addEventListener('click', () => {
+            const val = nameInput?.value?.trim();
+            if (val && val.length > 1) {
+                userName = val;
+                localStorage.setItem('bingusUserName', userName);
+                hideNamePrompt();
+                displayMessage('Bingus ✨', `Yas, ${userName}! Let the slay begin! 💅`);
+            } else {
+                nameInput.classList.add('border-red-400');
+                setTimeout(() => nameInput.classList.remove('border-red-400'), 1000);
+            }
+        });
+    }
+    if (nameInput) {
+        nameInput.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') {
+                submitNameButton.click();
+            }
+        });
+    }
+    // --- Enhanced Chat Message Sending ---
+    async function sendChatMessage() {
+        const message = chatInput?.value?.trim();
+        if (!message) return;
+        displayMessage('You', message);
+        chatInput.value = '';
+        chatInput.focus();
+        showTypingIndicator();
+        // Detect image generation intent
+        const imageTriggers = [
+            'draw bingus', 'generate image', 'show me bingus', 'make a picture', 'create an image', 'fat sphynx cat', 'cat pic', 'cat image', 'bingus art', 'picture of bingus'
+        ];
+        const lowerMsg = message.toLowerCase();
+        if (imageTriggers.some(trigger => lowerMsg.includes(trigger))) {
+            await generateBingusImage();
+            return;
+        }
+        try {
+            const response = await fetch('/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                body: JSON.stringify({ message: message, userName: userName }),
+            });
+            const responseText = await response.text();
+            if (!response.ok) {
+                let eData = { error: `Server error:${response.status}`, message: responseText };
+                try { eData = JSON.parse(responseText); } catch (e) { }
+                throw new Error(eData.error || eData.message || `Server error:${response.status}`);
+            }
+            const data = JSON.parse(responseText);
+            hideTypingIndicator();
+            const aiSpeaker = 'Bingus ✨';
+            if (data.response) {
+                displayMessage(aiSpeaker, data.response);
+            } else if (data.error) {
+                displayMessage(aiSpeaker, `Oopsie! ${data.error}`);
+            } else {
+                displayMessage(aiSpeaker, "Hmm, unexpected response...");
+            }
+        } catch (error) {
+            hideTypingIndicator();
+            displayMessage('Bingus ✨', `Connection fuzzy! (${error.message})`);
+        }
+    }
+    // --- Bingus Image Generation ---
+    async function generateBingusImage() {
+        showTypingIndicator();
+        try {
+            const response = await fetch('/generate-image', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                body: JSON.stringify({ userName: userName }),
+            });
+            const responseText = await response.text();
+            if (!response.ok) {
+                let eData = { error: `Server error:${response.status}`, message: responseText };
+                try { eData = JSON.parse(responseText); } catch (e) { }
+                throw new Error(eData.error || eData.message || `Server error:${response.status}`);
+            }
+            const data = JSON.parse(responseText);
+            hideTypingIndicator();
+            const aiSpeaker = 'Bingus ✨';
+            if (data.image_url) {
+                // Show Bingus's message and the image
+                if (data.response) displayMessage(aiSpeaker, data.response);
+                const messageWrapper = document.createElement('div');
+                messageWrapper.classList.add('animate-fade-in-up', 'transition-all', 'duration-500', 'text-left');
+                const imageContainer = document.createElement('div');
+                imageContainer.classList.add('generated-image-container', 'mt-2');
+                const img = document.createElement('img');
+                img.src = data.image_url;
+                img.alt = 'Generated Bingus Image';
+                img.className = 'max-w-xs rounded-lg shadow-md';
+                const downloadLink = document.createElement('a');
+                downloadLink.href = data.image_url;
+                downloadLink.download = 'bingus_creation.png';
+                downloadLink.className = 'download-image-link text-bubblegum-pink underline ml-2';
+                downloadLink.textContent = 'Download Image';
+                imageContainer.appendChild(img);
+                imageContainer.appendChild(document.createElement('br'));
+                imageContainer.appendChild(downloadLink);
+                messageWrapper.appendChild(imageContainer);
+                if (typingIndicator) chatMessages.insertBefore(messageWrapper, typingIndicator); else chatMessages.appendChild(messageWrapper);
+                chatMessages.scrollTo({ top: chatMessages.scrollHeight, behavior: 'smooth' });
+            } else if (data.error) {
+                displayMessage(aiSpeaker, `Oopsie! ${data.error}`);
+            } else {
+                displayMessage(aiSpeaker, "Hmm, Bingus couldn't paint this time...");
+            }
+        } catch (error) {
+            hideTypingIndicator();
+            displayMessage('Bingus ✨', `Image magic failed! (${error.message})`);
+        }
+    }
+
+    // --- Progress Functions ---
+    function clearFakeProgress() { if (fakeProgressInterval) { clearInterval(fakeProgressInterval); fakeProgressInterval = null; console.log("DEBUG: Cleared fake progress interval."); } }
+    function showProgress() {
+        console.log("DEBUG: showProgress called"); clearFakeProgress();
+        if (!progressBarFill) { console.error("ERROR: Progress bar fill element not found!"); } else { progressBarFill.style.transitionDuration = '0ms'; progressBarFill.style.width = '0%'; void progressBarFill.offsetWidth; progressBarFill.style.transitionDuration = '150ms'; console.log("DEBUG: Progress bar reset to 0%"); }
+        if(progressIndicator) progressIndicator.classList.remove('hidden'); if(resultArea) resultArea.classList.add('hidden'); if(errorArea) errorArea.classList.add('hidden');
+        if(submitButton) { submitButton.disabled = true; submitButton.classList.add('opacity-50', 'cursor-not-allowed'); submitButton.textContent = "Processing..."; }
+        let startTime = Date.now(); console.log("DEBUG: Starting fake progress interval...");
+        fakeProgressInterval = setInterval(() => {
+            let elapsedTime = Date.now() - startTime; let progressPercent = (elapsedTime / ESTIMATED_PROCESSING_TIME_MS) * 100; let displayPercent = Math.min(progressPercent, 95);
+            console.log(`DEBUG Interval: Elapsed=${elapsedTime}ms, Progress=${progressPercent.toFixed(1)}%, Display=${displayPercent.toFixed(1)}%`);
+            if (progressBarFill) { progressBarFill.style.width = displayPercent + '%'; } else { console.error("ERROR Interval: Progress bar fill missing!"); clearFakeProgress(); return; }
+            if (elapsedTime >= ESTIMATED_PROCESSING_TIME_MS) { console.log("DEBUG: Fake progress time elapsed."); clearFakeProgress(); }
+        }, 150);
+    }
+    function hideProgress() { console.log("DEBUG: hideProgress called"); clearFakeProgress(); if(progressIndicator) progressIndicator.classList.add('hidden'); if (submitButton) { submitButton.disabled = false; submitButton.classList.remove('opacity-50', 'cursor-not-allowed'); submitButton.innerHTML = "✨ Let's Process! ✨"; } }
+    function showError(message, aiMessage = null) { console.log("DEBUG: showError called"); clearFakeProgress(); hideTypingIndicator(); hideProgress(); if(errorMessage) errorMessage.textContent = message; if(errorArea) errorArea.classList.remove('hidden'); if(resultArea) resultArea.classList.add('hidden'); const aiSpeaker = 'Bingus ✨'; if (aiMessage) displayMessage(aiSpeaker, aiMessage); else displayMessage(aiSpeaker, "Oh no, drama!"); if(errorArea) errorArea.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+    function showResult(fileBlob, filename) {
+        console.log("DEBUG: showResult called"); clearFakeProgress(); hideTypingIndicator();
+        if (progressBarFill) { progressBarFill.style.transitionDuration = '300ms'; progressBarFill.style.width = '100%'; console.log("DEBUG: Set progress bar to 100%"); }
+        setTimeout(() => { if(progressIndicator) progressIndicator.classList.add('hidden'); }, 500);
+        if(resultArea) resultArea.classList.remove('hidden'); if(errorArea) errorArea.classList.add('hidden');
+        const url = URL.createObjectURL(fileBlob); if(downloadLink) { downloadLink.href = url; downloadLink.download = filename || 'processed.xlsx'; }
+        fetchProcessingSummary(); const aiSpeaker = 'Bingus ✨'; displayMessage(aiSpeaker, "YAS QUEEN! 👑 File processed! Download below & check report!");
+        if(resultArea) resultArea.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        if (submitButton) { submitButton.disabled = false; submitButton.classList.remove('opacity-50', 'cursor-not-allowed'); submitButton.innerHTML = "✨ Let's Process! ✨"; }
+    }
+
     // --- AI Chat Functions ---
     async function sendChatMessage() {
         console.log("DEBUG: sendChatMessage function CALLED!"); const message = chatInput?.value?.trim(); console.log(`DEBUG: Message to send: "${message}"`); if (!message) { console.log("DEBUG: Message empty."); return; } if (!chatInput) { console.error("ERROR: chatInput null!"); return; }
         displayMessage('You', message); chatInput.value = ''; chatInput.focus(); showTypingIndicator(); console.log(`DEBUG: Attempting to fetch /chat`);
+        // Detect image generation intent
+        const imageTriggers = [
+            'draw bingus', 'generate image', 'show me bingus', 'make a picture', 'create an image', 'fat sphynx cat', 'cat pic', 'cat image', 'bingus art', 'picture of bingus'
+        ];
+        const lowerMsg = message.toLowerCase();
+        if (imageTriggers.some(trigger => lowerMsg.includes(trigger))) {
+            await generateBingusImage();
+            return;
+        }
         try {
-            const response = await fetch('/chat', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }, body: JSON.stringify({ message: message }), });
+            const response = await fetch('/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                body: JSON.stringify({ message: message, userName: userName }),
+            });
             console.log(`DEBUG: /chat response Status: ${response.status}, OK: ${response.ok}`); const responseText = await response.text(); console.log(`DEBUG: /chat response text: ${responseText}`);
             if (!response.ok) { let eData={error:`Server error:${response.status}`,message:responseText}; try{eData=JSON.parse(responseText);}catch(e){} throw new Error(eData.error||eData.message||`Server error:${response.status}`); }
             const data = JSON.parse(responseText); console.log("DEBUG: Parsed /chat data:", data); hideTypingIndicator(); const aiSpeaker = 'Bingus ✨';

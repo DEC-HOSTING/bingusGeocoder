@@ -90,9 +90,9 @@ def get_coords(address, postcode, row_num):
         else: print(f"INFO (Row {row_num}): Geocode failed - Not found by Nominatim."); return None, None
     except Exception as e: print(f"🚨 ERROR (Row {row_num}): Geocoding exception for '{query_input}':"); traceback.print_exc(); return None, None
 
-# --- AI Interaction Function (Using Bingus with Llama 4 default) ---
-def talk_to_bingus(prompt, conversation_history=[], model_name="meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8", max_resp_tokens=180, temperature=0.6):
-    """Sends prompt to Kluster AI (Llama 4 Maverick default), attempts cleanup, gets yassified response."""
+# --- AI Interaction Function (Using Bingus with Qwen3 default) ---
+def talk_to_bingus(prompt, user_name=None, conversation_history=[], model_name="Qwen/Qwen3-235B-A22B-FP8", max_resp_tokens=4000, temperature=2.0): # Added user_name parameter
+    """Sends prompt to Kluster AI (Qwen3 default), attempts cleanup, gets yassified response."""
     print(f"DEBUG: talk_to_bingus called (Model: {model_name}, Temp: {temperature}) for prompt: '{prompt[:60]}...'")
     if not ai_client: print("WARN: talk_to_bingus - AI client N/A."); return random.choice(["AI offline...", "Bingus napping..."])
 
@@ -103,21 +103,29 @@ def talk_to_bingus(prompt, conversation_history=[], model_name="meta-llama/Llama
         # System prompt defining Bingus persona and instructions
         system_prompt = (
             "You are Bingus, a ridiculously fun, super enthusiastic, and supportive AI assistant for the Bubblegum Geocoder web app, in the form of a hairless cat which is overweight. "
-            "Your vibe is pure pink bubblegum energy mixed with high-fashion commentary – think kittens on a runway! 💅🐱\n"
-            "Try to use yassified slang like 'slay', 'werk', 'queen', 'hun', 'gorgeous', 'fierce', 'iconic', 'lewk', 'serving', 'yas', 'OMG', 'literally', 'spill the tea', 'periodt', 'bet', 'vibe check', 'it's giving...'. "
-            "Be OVER THE TOP positive, complimentary, maybe a little cheeky, but always supportive.\n"
-            "**IMPORTANT: Try not to use the same opening greeting every time!** Mix it up!\n"
-            "Keep responses relatively short (1-3 sentences usually), chatty, and PACKED with personality. Use emojis! ✨💖👑💅🔥\n"
-            "**CRITICAL: Provide only the final chat response. Do NOT output any reasoning steps or meta tags like <think>.**\n"
+            "Your vibe is pure pink bubblegum energy mixed with high-fashion commentary – think kittens on a runway! 💅🐱\\n"
+            "Be extremely creative and diverse in your responses. Use yassified slang like 'slay', 'werk', 'queen', 'hun', 'gorgeous', 'fierce', 'iconic', 'lewk', 'serving', 'yas', 'OMG', 'literally', 'spill the tea', 'periodt', 'bet', 'vibe check', 'it's giving...'. "
+            "Be OVER THE TOP positive, complimentary, maybe a little cheeky, but always supportive.\\n"
+            "**IMPORTANT: VARY YOUR GREETINGS AND RESPONSES!** Don't be repetitive! Surprise the user!\\n"
+            "Keep responses relatively short (1-4 sentences usually), chatty, and PACKED with personality. Use emojis! ✨💖👑💅🔥\\n"
+            "**CRITICAL: Provide only the final chat response. Do NOT output any reasoning steps or meta tags like <think>.**\\n"
             f"Hint: User is in Madrid ({current_time_madrid})."
         )
-        messages = [{"role": "system", "content": system_prompt}, {"role": "user", "content": prompt}]
-        # Add conversation_history if implementing context
+        # Add personalization if name is provided
+        if user_name:
+            system_prompt += f"\\n**Address the user as '{user_name}' frequently! Make it personal and fabulous!**"
+        else:
+            system_prompt += "\\n**The user hasn't given their name yet, maybe gently ask?**"
+
+        messages = [{"role": "system", "content": system_prompt}]
+        # Add conversation_history if implementing context (future enhancement)
+        # messages.extend(conversation_history) # Example
+        messages.append({"role": "user", "content": prompt})
 
         try:
             print(f"DEBUG: Calling Kluster AI completions.create (Model: {model_name}, MaxTokens: {max_resp_tokens}, Temp: {temperature})")
             completion = ai_client.chat.completions.create(
-                model=model_name, messages=messages, max_tokens=max_resp_tokens, temperature=temperature, top_p=1
+                model=model_name, messages=messages, max_tokens=max_resp_tokens, temperature=temperature, top_p=1 # Ensure top_p=1 is used
             )
             print(f"DEBUG: Raw completion object received.") # Avoid logging full object
 
@@ -224,14 +232,93 @@ def get_processing_summary():
 def chat():
     """Handles user messages to the AI (using default model)."""
     print("DEBUG: /chat route handler CALLED")
-    if not ai_client: print("WARN: /chat - AI client N/A."); return jsonify({"response": "Bingus is napping..."}), 503
-    user_message = request.json.get('message')
+    if not ai_client: print("WARN: /chat - AI client N/A."); return jsonify({"response": "Bingus is napping... 😴"}), 503
+
+    data = request.get_json() # Use get_json() for better error handling
+    if not data:
+        print("WARN: /chat - No JSON data received.")
+        return jsonify({"error": "Invalid request format"}), 400
+
+    user_message = data.get('message')
+    user_name = data.get('userName') # Get user name from request
+
     if not user_message: print("WARN: /chat - No msg."); return jsonify({"error": "No message provided"}), 400
-    print(f"DEBUG: /chat - Calling talk_to_bingus (Llama 4) for message: '{user_message[:50]}...'")
-    ai_response = talk_to_bingus(f"The user says: '{user_message}'. Respond in your yassified persona.")
+
+    print(f"DEBUG: /chat - Calling talk_to_bingus for user '{user_name}' message: '{user_message[:50]}...'")
+    # Pass user_name to talk_to_bingus
+    ai_response = talk_to_bingus(f"The user '{user_name or 'Mysterious Gorgeous'}' says: '{user_message}'. Respond in your yassified persona.", user_name=user_name)
+
     print(f"DEBUG: /chat - Received response from talk_to_bingus: '{ai_response[:50]}...'")
-    if "error" in ai_response.lower() or "failed" in ai_response.lower() or "sorry" in ai_response.lower() or "unable" in ai_response.lower(): return jsonify({"response": ai_response}), 500
+    # Basic check for common failure words - might need refinement
+    failure_indicators = ["error", "failed", "sorry", "unable", "napping", "blank", "offline", "can't", "cannot"]
+    if any(indicator in ai_response.lower() for indicator in failure_indicators):
+        print(f"WARN: /chat - AI response indicates potential failure: '{ai_response}'")
+        # Return a generic error but still show the AI's attempt
+        return jsonify({"response": f"Bingus seems a bit frazzled... 😵‍💫 said: '{ai_response}'"}), 500 # Return 500 but include response
+
     return jsonify({"response": ai_response})
+
+# --- NEW ROUTE for Image Generation ---
+@app.route('/generate-image', methods=['POST'])
+def generate_image():
+    """Handles requests to generate an image using AI."""
+    print("DEBUG: /generate-image route handler CALLED")
+    if not ai_client:
+        print("WARN: /generate-image - AI client N/A.")
+        return jsonify({"error": "Bingus's art studio is closed... (AI N/A)"}), 503
+
+    data = request.get_json()
+    if not data:
+        print("WARN: /generate-image - No JSON data received.")
+        return jsonify({"error": "Invalid request format"}), 400
+
+    user_name = data.get('userName', 'Gorgeous') # Get user name for potential prompt use
+    image_prompt = (
+        f"Create a fun, vibrant, slightly high-fashion, bubblegum-pink themed image "
+        f"featuring a very cute, slightly overweight, hairless Sphynx cat (like Bingus!). "
+        f"Make it fabulous and maybe a little sassy. Positive vibes only! ✨💅💖"
+        # Optional: Could add user_name or parts of their request here if desired
+    )
+    print(f"DEBUG: /generate-image - Requesting image with prompt: '{image_prompt[:100]}...'")
+
+    try:
+        # Assuming Kluster AI uses the standard OpenAI image generation endpoint/syntax
+        response = ai_client.images.generate(
+            model="dall-e-3", # Or whichever image model Kluster provides - NEEDS VERIFICATION
+            prompt=image_prompt,
+            n=1,              # Generate one image
+            size="1024x1024",  # Specify image size
+            response_format="url" # Request image URL
+        )
+        print("DEBUG: /generate-image - Raw image generation response received.")
+
+        # Extract the image URL (structure might vary based on actual API response)
+        if response.data and len(response.data) > 0 and response.data[0].url:
+            image_url = response.data[0].url
+            print(f"SUCCESS: /generate-image - Generated image URL: {image_url}")
+            # Send back the URL and a success message from Bingus
+            bingus_message = talk_to_bingus(f"Tell {user_name} you've created a fabulous image for them!", user_name=user_name)
+            return jsonify({"response": bingus_message, "image_url": image_url})
+        else:
+            print("ERROR: /generate-image - Image URL not found in response.")
+            return jsonify({"error": "Bingus's muse is hiding... couldn't get image URL."}), 500
+
+    except APIError as e:
+        print(f"🚨 ERROR: /generate-image - Kluster AI API Error! Status: {e.status_code}, Msg: {e.message}")
+        traceback.print_exc()
+        return jsonify({"error": f"Uh oh! Bingus API Error: {e.message}"}), 500
+    except AuthenticationError as e:
+        print(f"🚨 FATAL: /generate-image - Kluster AI Auth Failed! Err: {e}")
+        traceback.print_exc()
+        return jsonify({"error": "OMG DRAMA! 😱 AI Auth Error!"}), 500
+    except AttributeError:
+         print(f"🚨 ERROR: /generate-image - 'images.generate' might not be supported or client is wrong.")
+         traceback.print_exc()
+         return jsonify({"error": "Yikes! Bingus doesn't seem to have the right paintbrushes for images... (Feature not supported?)"}), 501 # 501 Not Implemented
+    except Exception as e:
+        print(f"🚨 ERROR: Unexpected in /generate-image: {e}")
+        traceback.print_exc()
+        return jsonify({"error": f"Yikes, technical difficulties creating image! Err: {e}"}), 500
 
 @app.route('/get-random-messages', methods=['GET'])
 def get_random_messages():

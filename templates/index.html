@@ -21,6 +21,17 @@
 </head>
 <body class="flex-grow flex items-start sm:items-center justify-start sm:justify-center p-2 sm:p-4 md:p-8 lg:p-12 bg-gradient-to-br from-soft-pink via-candy-pink to-light-purple text-gray-800 font-sans">
 
+    <!-- NEW: Name Prompt Modal -->
+    <div id="name-prompt-overlay" class="fixed inset-0 bg-black bg-opacity-70 backdrop-blur-md flex items-center justify-center p-4 z-[60] opacity-0 transition-opacity duration-500 ease-out" aria-modal="true" role="dialog">
+        <div id="name-prompt-modal" class="bg-gradient-to-br from-white via-soft-pink to-candy-pink p-6 sm:p-8 rounded-3xl shadow-glow max-w-md w-full text-center relative transform scale-95 opacity-0 transition-all duration-500 ease-out">
+            <img src="{{ url_for('static', filename='images/kitten_icon.png') }}" alt="Kitten Icon" class="w-24 md:w-32 mx-auto mb-4 animate-bounce-in object-contain">
+            <h2 class="text-2xl sm:text-3xl font-bold text-deep-purple mb-4 font-display">Hey Gorgeous!</h2>
+            <p class="text-deep-purple/90 text-base sm:text-lg mb-5">Bingus wants to know your name! 💅</p>
+            <input type="text" id="name-input" placeholder="Your fabulous name..." class="w-full p-3 border-2 border-candy-pink rounded-full focus:outline-none focus:ring-2 focus:ring-bubblegum-pink focus:border-transparent transition duration-300 text-base shadow-inner-cute mb-5"/>
+            <button id="submit-name-button" class="bg-bubblegum-pink text-white px-8 py-3 rounded-full font-semibold hover:scale-105 transform transition duration-200 shadow-md text-lg">Let's Chat! ✨</button>
+        </div>
+    </div>
+
     <div class="bg-white bg-opacity-90 backdrop-blur-lg rounded-2xl md:rounded-3xl shadow-glow p-3 sm:p-4 md:p-8 w-full max-w-7xl flex flex-col md:flex-row gap-4 md:gap-8 lg:gap-12 pt-6 sm:pt-4 md:pt-8">
 
         <div class="flex-1 w-full md:max-w-md lg:max-w-lg mx-auto">
@@ -78,7 +89,16 @@
                 Chat with Bingus!
             </h2>
             <div id="chat-messages" class="flex-1 overflow-y-auto mb-3 md:mb-4 p-2 sm:p-3 md:p-4 bg-white/70 rounded-lg space-y-2 sm:space-y-3 md:space-y-4 min-h-[250px] sm:min-h-[300px] md:min-h-[350px] h-72 sm:h-80 md:h-96 shadow-inner-cute" >
-                <p class="text-gray-500 italic text-xs sm:text-sm text-center mt-4">Loading chat...</p>
+                <!-- Messages will be added here by JS -->
+                <!-- Example structure for a message with an image:
+                <div class="message ai-message">
+                    <p>Check out this lewk! 💅</p>
+                    <div class="generated-image-container mt-2">
+                        <img src="[image_url]" alt="Generated Bingus Image" class="max-w-xs rounded-lg shadow-md">
+                        <a href="[image_url]" download="bingus_creation.png" class="download-image-link">Download Image</a>
+                    </div>
+                </div>
+                -->
                  <div id="typing-indicator" class="hidden flex items-center space-x-1.5 p-2 ml-2">
                      <div class="w-2 h-2 sm:w-2.5 sm:h-2.5 bg-candy-pink rounded-full animate-dot-bounce-1"></div> <div class="w-2 h-2 sm:w-2.5 sm:h-2.5 bg-candy-pink rounded-full animate-dot-bounce-2"></div> <div class="w-2 h-2 sm:w-2.5 sm:h-2.5 bg-candy-pink rounded-full animate-dot-bounce-3"></div>
                  </div>
