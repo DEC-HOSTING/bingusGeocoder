@@ -102,34 +102,46 @@ function showQuickReplies(options) {
 // --- Typewriter effect: start after short delay for perceived speed ---
 function typewriterMessage(sender, message, callback) {
     if (!chatMessages) return;
-    const aiSpeaker = 'Bingus ✨';
+    const aiSpeaker = 'Bingus ✨'; // Ensure this matches the sender name
     const messageWrapper = document.createElement('div');
     const messageElement = document.createElement('p');
     const strong = document.createElement('strong');
-    messageWrapper.classList.add('animate-fade-in-up', 'transition-all', 'duration-500');
+
+    // Styling for AI messages
+    messageWrapper.classList.add('animate-fade-in-up', 'transition-all', 'duration-500', 'text-left'); // Ensure left alignment
     messageElement.classList.add('text-left', 'mr-8', 'bg-white', 'bg-opacity-90', 'p-3', 'rounded-lg', 'rounded-bl-none', 'shadow-md', 'inline-block', 'max-w-xs', 'sm:max-w-sm', 'md:max-w-md', 'break-words');
     strong.textContent = aiSpeaker + ': ';
     strong.classList.add('text-bubblegum-pink');
     messageElement.appendChild(strong);
-    const span = document.createElement('span');
+
+    const span = document.createElement('span'); // Content will be typed into this span
     messageElement.appendChild(span);
     messageWrapper.appendChild(messageElement);
-    if (typingIndicator) chatMessages.insertBefore(messageWrapper, typingIndicator); else chatMessages.appendChild(messageWrapper);
+
+    // --- FIX: Always append the message wrapper to the chatMessages container ---
+    chatMessages.appendChild(messageWrapper);
     chatMessages.scrollTo({ top: chatMessages.scrollHeight, behavior: 'smooth' });
+    // --- End FIX ---
+
     let i = 0;
+    const typingSpeed = 15 + Math.random() * 30; // Adjust speed slightly
+
+    // Delay before starting typing
     setTimeout(() => {
         function type() {
-            if (i <= message.length) {
-                span.textContent = message.slice(0, i);
+            if (i < message.length) {
+                // Use innerHTML to render emotes if they are HTML (like <img> tags)
+                span.innerHTML = message.slice(0, i + 1);
                 chatMessages.scrollTo({ top: chatMessages.scrollHeight, behavior: 'smooth' });
                 i++;
-                setTimeout(type, 12 + Math.random() * 30);
+                setTimeout(type, typingSpeed);
             } else {
-                if (callback) callback();
+                // Typing finished
+                if (callback) callback(); // Execute callback after typing
             }
         }
-        type();
-    }, 350 + Math.random() * 200); // short delay for perceived speed
+        type(); // Start the typing animation
+    }, 300 + Math.random() * 200); // Short delay before typing starts
 }
 
 // --- NEW: Function to display the thinking bubble ---
@@ -163,44 +175,62 @@ function hideThinkingBubble() {
 function displayMessage(sender, message, opts = {}) {
     const aiSpeaker = 'Bingus ✨';
     if (!chatMessages) { console.error("ERROR in displayMessage: chatMessages element is null!"); return; }
+
+    // Check if the sender is the AI to trigger typewriter
     if (sender === aiSpeaker) {
-        hideTypingIndicator();
+        hideTypingIndicator(); // Hide indicator if it was shown
         bingusMessageCount++;
-        // Add emote
         let emote = getRandomEmote();
         let msgWithEmote = message;
-        if (!message.includes('img') && Math.random() < 0.7) {
+        // Add emote only if it's not an image tag already
+        if (!message.includes('<img') && Math.random() < 0.7) {
             msgWithEmote = emote + ' ' + message;
         }
-        // Play sound
         playBingusSound();
-        // Typewriter effect
-        typewriterMessage(sender, msgWithEmote);
-        // Fun fact every few messages
-        maybeShowFunFact();
-        // Quick replies
-        if (!opts.noQuickReplies && Math.random() < 0.7) {
-            showQuickReplies([
-                { label: 'Slay!', text: 'Slay!' },
-                { label: 'Tell me more!', text: 'Tell me more, Bingus!' },
-                { label: 'Draw Bingus!', text: 'Draw Bingus!' }
-            ]);
-        }
-        return;
+        // Call typewriterMessage for AI messages
+        typewriterMessage(sender, msgWithEmote, () => {
+            // Optional callback after typing finishes
+            maybeShowFunFact(); // Show fun fact after message types out
+            if (!opts.noQuickReplies && Math.random() < 0.7) {
+                showQuickReplies([
+                     { label: 'Slay!', text: 'Slay!' },
+                     { label: 'Tell me more!', text: 'Tell me more, Bingus!' },
+                     { label: 'Draw Bingus!', text: 'Draw Bingus!' }
+                ]);
+            }
+        });
+        return; // Important: Stop execution here for AI messages handled by typewriter
     }
-    if (sender === aiSpeaker) hideTypingIndicator();
-    const messageWrapper = document.createElement('div'); const messageElement = document.createElement('p'); const strong = document.createElement('strong');
+
+    // --- This part handles non-AI messages (like 'You') ---
+    const messageWrapper = document.createElement('div');
+    const messageElement = document.createElement('p');
+    const strong = document.createElement('strong');
     messageWrapper.classList.add('animate-fade-in-up', 'transition-all', 'duration-500');
+
     if (sender === 'You') {
         messageElement.classList.add('text-right', 'ml-8', 'bg-purple-100', 'p-3', 'rounded-lg', 'rounded-br-none', 'shadow-sm', 'inline-block', 'max-w-xs', 'sm:max-w-sm', 'md:max-w-md', 'break-words');
         strong.textContent = 'You: '; strong.classList.add('text-deep-purple'); messageWrapper.classList.add('text-right');
     } else {
-        messageElement.classList.add('text-left', 'mr-8', 'bg-white', 'bg-opacity-90', 'p-3', 'rounded-lg', 'rounded-bl-none', 'shadow-md', 'inline-block', 'max-w-xs', 'sm:max-w-sm', 'md:max-w-md', 'break-words');
-        strong.textContent = aiSpeaker + ': '; strong.classList.add('text-bubblegum-pink'); messageWrapper.classList.add('text-left');
+         // Fallback for other senders (though currently only 'You' and 'Bingus ✨' are used)
+         // This part should technically not be reached if sender === aiSpeaker check works
+        messageElement.classList.add('text-left', 'mr-8', 'bg-gray-200', 'p-3', 'rounded-lg', 'rounded-bl-none', 'shadow-sm', 'inline-block', 'max-w-xs', 'sm:max-w-sm', 'md:max-w-md', 'break-words');
+        strong.textContent = sender + ': '; strong.classList.add('text-gray-700'); messageWrapper.classList.add('text-left');
     }
-    messageElement.appendChild(strong); messageElement.appendChild(document.createTextNode(message || "")); messageWrapper.appendChild(messageElement);
-    if(typingIndicator) chatMessages.insertBefore(messageWrapper, typingIndicator); else chatMessages.appendChild(messageWrapper);
-    chatMessages.scrollTo({ top: chatMessages.scrollHeight, behavior: 'smooth' }); console.log("DEBUG: Message added to chat window.");
+
+    messageElement.appendChild(strong);
+    messageElement.appendChild(document.createTextNode(message || ""));
+    messageWrapper.appendChild(messageElement);
+
+    // --- FIX: Always append the message to the chatMessages container ---
+    if (chatMessages) {
+        chatMessages.appendChild(messageWrapper);
+        chatMessages.scrollTo({ top: chatMessages.scrollHeight, behavior: 'smooth' });
+        console.log("DEBUG: Non-AI Message appended to chat window.");
+    } else {
+        console.error("ERROR: chatMessages element missing when trying to append non-AI message.");
+    }
+    // --- End FIX ---
 }
 
     function clearChatLoading() { console.log("DEBUG: clearChatLoading CALLED."); const loading = chatMessages?.querySelector('p.italic'); if (loading) { loading.remove(); console.log("DEBUG: 'Loading chat...' removed."); } else { console.log("DEBUG: 'Loading chat...' not found."); } }
@@ -399,7 +429,7 @@ function displayMessage(sender, message, opts = {}) {
                 imageContainer.appendChild(document.createElement('br'));
                 imageContainer.appendChild(downloadLink);
                 messageWrapper.appendChild(imageContainer);
-                if (typingIndicator) chatMessages.insertBefore(messageWrapper, typingIndicator); else chatMessages.appendChild(messageWrapper);
+                chatMessages.appendChild(messageWrapper);
                 chatMessages.scrollTo({ top: chatMessages.scrollHeight, behavior: 'smooth' });
             } else if (data.error) {
                 displayMessage(aiSpeaker, `Oopsie! ${data.error}`);
@@ -564,21 +594,26 @@ function displayMessage(sender, message, opts = {}) {
     // --- Initial Load ---
     try {
         console.log("DEBUG: Running initial setup...");
-        clearChatLoading();
+        // Removed clearChatLoading as it might not be needed or defined early enough
         // Fetch messages THEN set timeouts
         fetchRandomMessages().then(() => {
             console.log("DEBUG: Random messages fetch completed. Setting timeouts.");
             setTimeout(() => { console.log("DEBUG: Timeout 1 fired. Calling showRandomPopup."); showRandomPopup(); }, 5000);
             setTimeout(() => { console.log("DEBUG: Timeout 2 fired. Calling showRandomPopup."); showRandomPopup(); }, 45000);
         });
-        // Add initial greeting
+        // Add initial greeting - Ensure displayMessage is called correctly
         setTimeout(() => {
             console.log("DEBUG: Calling displayMessage for initial greeting.");
+            // Make sure 'Bingus ✨' triggers the AI path in displayMessage
             displayMessage('Bingus ✨', "Heeey gorgeous! Welcome! Upload a file or ask me anything! 💖");
-        }, 1000);
+        }, 1000); // Delay slightly to ensure everything is ready
         console.log("DEBUG: Initial setup scheduled.");
     } catch (error) {
         console.error("ERROR during initial setup:", error);
+        // Display an error in the chat if initial setup fails
+        if (chatMessages) {
+             chatMessages.innerHTML = `<p class="text-red-500 p-4">Error initializing chat: ${error.message}</p>`;
+        }
     }
 
 }); // End DOMContentLoaded
