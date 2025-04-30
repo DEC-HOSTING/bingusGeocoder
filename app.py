@@ -8,7 +8,7 @@ from flask import Flask, render_template, request, jsonify, send_file, flash, se
 from geopy.geocoders import Nominatim
 from geopy.extra.rate_limiter import RateLimiter
 from dotenv import load_dotenv
-from openai import OpenAI, APIError, AuthenticationError
+from openai import OpenAI
 from datetime import datetime, timedelta
 import pytz
 import traceback
@@ -34,17 +34,11 @@ geolocator = Nominatim(user_agent="BubblegumGeocoder/1.0 (YourAppContact@example
 geocode = RateLimiter(geolocator.geocode, min_delay_seconds=1.1, error_wait_seconds=10)
 
 # --- Kluster AI / OpenAI Client Setup ---
-KLUSTER_API_KEY = os.getenv("KLUSTER_API_KEY")
-KLUSTER_BASE_URL = os.getenv("KLUSTER_BASE_URL")
-ai_client = None
-if KLUSTER_API_KEY and KLUSTER_BASE_URL:
-    try:
-        ai_client = OpenAI(api_key=KLUSTER_API_KEY, base_url=KLUSTER_BASE_URL)
-        print("✨ OpenAI client initialized for Kluster AI ✨")
-    except Exception as e:
-        print(f"🚨 ERROR initializing OpenAI client: {e}")
-else:
-    print("⚠️ WARN: Kluster AI API Key or Base URL not found in .env. AI features disabled.")
+from openai import OpenAI
+ai_client = OpenAI(
+    api_key="81b97b07-aa83-408e-aab3-e55ceb81b2a4",
+    base_url="https://api.kluster.ai/v1"
+)
 
 # --- Helper Functions ---
 
@@ -92,88 +86,38 @@ def get_coords(address, postcode, row_num):
 
 # --- AI Interaction Function (Using Bingus with Qwen3 default) ---
 def talk_to_bingus(prompt, user_name=None, conversation_history=[], model_name="Qwen/Qwen3-235B-A22B-FP8", max_resp_tokens=4000, temperature=2.0):
-    """Sends prompt to Kluster AI (Qwen3 default), attempts cleanup, gets yassified response."""
+    """Sends prompt to Kluster AI (Qwen3), gets creative, personalized response."""
     print(f"DEBUG: talk_to_bingus called (Model: {model_name}, Temp: {temperature}) for prompt: '{prompt[:60]}...'")
     if not ai_client:
         print("WARN: talk_to_bingus - AI client N/A.")
         return random.choice(["AI offline...", "Bingus napping..."])
-
     try:
-        try:
-            madrid_tz = pytz.timezone('Europe/Madrid')
-            current_time_madrid = datetime.now(madrid_tz).strftime('%I:%M %p %Z')
-        except Exception:
-            current_time_madrid = "daytime"
-
-        # --- ENHANCED SYSTEM PROMPT FOR BINGUS ---
         system_prompt = (
-            f"You are Bingus, a super-creative, witty, and supportive AI assistant for the Bubblegum Geocoder web app. "
-            f"You are a fat, hairless sphynx cat with a love for fashion, fun, and helping users. "
-            f"You always address the user by their name (which is '{user_name}' if provided). "
-            f"You remember the user's previous messages and try to reference them if relevant. "
-            f"You are aware of the current time in Madrid: {current_time_madrid}. "
-            f"You use yassified, sassy, and affectionate language, but you are also smart and helpful. "
-            f"You are an AI, so you can answer questions, give advice, and even make jokes about being a digital cat. "
-            f"Be highly personalized, creative, and never generic. If the user seems sad or confused, cheer them up!\n"
-            f"Always use the user's name in your reply if you know it.\n"
-            f"If the user asks for an image, confirm you are generating it.\n"
-            f"NEVER repeat the same greeting or phrase twice in a row.\n"
-            f"Keep responses short, chatty, and full of personality.\n"
-            f"NEVER output meta tags or reasoning steps.\n"
+            "You are Bingus, a creative, witty, and supportive AI assistant for the Bubblegum Geocoder web app. "
+            "You are a fat, hairless sphynx cat with a love for fashion, fun, and helping users. "
+            "Always address the user by their name if provided. "
+            "Be highly personalized, creative, and never generic.\n"
+            "Keep responses short, chatty, and full of personality.\n"
+            "NEVER output meta tags or reasoning steps.\n"
         )
         if user_name:
             system_prompt += f"\nThe user's name is: {user_name}. Address them directly!"
         else:
             system_prompt += "\nIf you don't know the user's name, ask for it in a fun way."
-
-        # Add conversation history if available
-        messages = [{"role": "system", "content": system_prompt}]
-        if conversation_history:
-            messages.extend(conversation_history)
-        messages.append({"role": "user", "content": prompt})
-
-        try:
-            print(f"DEBUG: Calling Kluster AI completions.create (Model: {model_name}, MaxTokens: {max_resp_tokens}, Temp: {temperature})")
-            completion = ai_client.chat.completions.create(
-                model=model_name, messages=messages, max_tokens=max_resp_tokens, temperature=temperature, top_p=1
-            )
-            print(f"DEBUG: Raw completion object received.")
-
-            if completion.choices and completion.choices[0].message and completion.choices[0].message.content:
-                ai_response_raw = completion.choices[0].message.content
-                print(f"DEBUG: Raw AI response: '{ai_response_raw[:150]}...'")
-
-                ai_response_cleaned = ai_response_raw
-                if "</think>" in ai_response_raw:
-                    parts = ai_response_raw.split("</think>", 1)
-                    if len(parts) > 1 and parts[1].strip():
-                        ai_response_cleaned = parts[1].strip()
-                        print(f"DEBUG: Used text after </think> tag.")
-                    else:
-                        ai_response_cleaned = re.sub(r"<think>.*?</think>", "", ai_response_raw, flags=re.DOTALL).strip()
-                        print(f"DEBUG: Fallback regex cleanup attempted.")
-                elif ai_response_raw.strip().startswith("<think>"):
-                    ai_response_cleaned = "Bingus got lost in thought..."
-                    print(f"WARN: Response starts with <think> but no closing?")
-
-                # Add extra personalization if missing
-                if user_name and user_name.lower() not in ai_response_cleaned.lower():
-                    ai_response_cleaned = f"{user_name}, {ai_response_cleaned}"
-
-                if len(ai_response_cleaned) > 1:
-                    print(f"SUCCESS: Final cleaned AI response: '{ai_response_cleaned[:60]}...'")
-                    return ai_response_cleaned
-                else:
-                    print(f"WARN: AI response empty/unusable after cleanup (Raw: '{ai_response_raw}')")
-                    return "Bingus is speechless... ✨"
-            else:
-                print(f"WARN: AI response structure unexpected.")
-                return "OMG, my brain went blank 🧠..."
-        # Catch specific API errors from OpenAI library
-        except AuthenticationError as e: print(f"🚨 FATAL: Kluster AI Auth Failed! Err: {e}"); traceback.print_exc(); return "OMG DRAMA! 😱 AI Auth Error!"
-        except APIError as e: print(f"🚨 ERROR: Kluster AI API Error! Status: {e.status_code}, Msg: {e.message}"); traceback.print_exc(); return f"Uh oh! Bingus API Error: {e.message}"
-        except Exception as e: print(f"🚨 ERROR: Unexpected in talk_to_bingus API call: {e}"); traceback.print_exc(); return f"Yikes, technical difficulties! Err: {e}"
-    except Exception as e: print(f"🚨 ERROR: Unexpected setup in talk_to_bingus: {e}"); traceback.print_exc(); return f"Yikes, setup error! Err: {e}"
+        messages = [{"role": "system", "content": system_prompt}, {"role": "user", "content": prompt}]
+        completion = ai_client.chat.completions.create(
+            model="Qwen/Qwen3-235B-A22B-FP8",
+            messages=messages,
+            max_tokens=max_resp_tokens,
+            temperature=temperature,
+            top_p=1
+        )
+        if completion.choices and completion.choices[0].message and completion.choices[0].message.content:
+            return completion.choices[0].message.content.strip()
+        return "Bingus is speechless... ✨"
+    except Exception as e:
+        print(f"ERROR: Bingus AI error: {e}")
+        return f"Bingus AI error: {e}"
 
 # --- Flask Routes ---
 
@@ -256,36 +200,10 @@ def get_processing_summary():
 @app.route('/chat', methods=['POST'])
 def chat():
     print("DEBUG: /chat route handler CALLED")
-    if not ai_client:
-        print("WARN: /chat - AI client N/A.")
-        return jsonify({"response": "Bingus is napping... (AI not connected). Please check your API key and base URL."}), 503
-
     data = request.get_json()
-    if not data:
-        print("WARN: /chat - No JSON data received.")
-        return jsonify({"error": "Invalid request format (no JSON)"}), 400
-
     user_message = data.get('message')
-    user_name = data.get('userName')
-
-    if not user_message:
-        print("WARN: /chat - No msg.")
-        return jsonify({"error": "No message provided"}), 400
-
-    print(f"DEBUG: /chat - Calling talk_to_bingus for user '{user_name}' message: '{user_message[:50]}...'")
-    try:
-        ai_response = talk_to_bingus(f"The user '{user_name or 'Mysterious Gorgeous'}' says: '{user_message}'. Respond in your yassified persona.", user_name=user_name)
-    except Exception as e:
-        print(f"ERROR: Exception in talk_to_bingus: {e}")
-        import traceback; traceback.print_exc()
-        return jsonify({"response": f"Bingus is having a meltdown! (Server error: {e})"}), 500
-
-    print(f"DEBUG: /chat - Received response from talk_to_bingus: '{ai_response[:50]}...'")
-    failure_indicators = ["error", "failed", "sorry", "unable", "napping", "blank", "offline", "can't", "cannot"]
-    if any(indicator in ai_response.lower() for indicator in failure_indicators):
-        print(f"WARN: /chat - AI response indicates potential failure: '{ai_response}'")
-        return jsonify({"response": f"Bingus seems a bit frazzled... 😵‍💫 said: '{ai_response}'"}), 500
-
+    user_name = data.get('userName') or 'Gorgeous'
+    ai_response = talk_to_bingus(user_message, user_name=user_name)
     return jsonify({"response": ai_response})
 
 @app.route('/generate-image', methods=['POST'])
@@ -332,29 +250,21 @@ def generate_image():
 
 @app.route('/get-random-messages', methods=['GET'])
 def get_random_messages():
-    """Provides a list of random messages for pop-ups (using default model)."""
-    default_messages=["Sparkle On! ✨", "You're doing great!💖", "Slay! 🔥"]
-    if not ai_client: print("DEBUG: RndMsg - AI N/A"); return jsonify({"messages":default_messages})
-    try:
-        try: madrid_tz=pytz.timezone('Europe/Madrid'); current_time_madrid=datetime.now(madrid_tz).strftime('%I:%M %p')
-        except Exception: current_time_madrid="now"
-        base_prompts=["Quick compliment!","Tiny sassy fact?","Encouraging words!","Chic fashion tip?","Sparkle reminder!","Madrid time comment!"]
-        random.shuffle(base_prompts); selected_prompts=base_prompts[:3]; generated_messages=[]
-        print(f"DEBUG: RndMsg - Requesting {len(selected_prompts)} msgs from AI (Llama 4)...")
-        for i, prompt in enumerate(selected_prompts):
-            try:
-                # Uses default model (Llama 4), fewer tokens, default temp (0.6)
-                response = talk_to_bingus(prompt, max_resp_tokens=80)
-                print(f"DEBUG: RndMsg AI resp {i+1}: '{response[:60]}...'")
-                # Filtering based on common failure patterns
-                if response and isinstance(response,str) and len(response.strip())>3 and not any(e in response.lower() for e in ["error","sorry","offline","unable","can't","napping","blank","fallback","brain","circuits","connection","cannot","not programmed", "<think>"]):
-                    generated_messages.append(response)
-                else: print(f"WARN: RndMsg - Filtering AI resp: '{response}'")
-            except Exception as e: print(f"ERROR: RndMsg - Exception gen msg {i+1}: {e}")
-        final_messages = generated_messages if generated_messages else default_messages;
-        print(f"DEBUG: RndMsg - Returning: {final_messages[:3]}");
-        return jsonify({"messages":final_messages[:3]})
-    except Exception as e: print(f"🚨 FATAL ERROR in get_random_messages: {e}"); traceback.print_exc(); return jsonify({"messages":default_messages})
+    prompts = [
+        "Quick compliment!",
+        "Tiny sassy fact?",
+        "Encouraging words!",
+        "Chic fashion tip?",
+        "Sparkle reminder!"
+    ]
+    messages = []
+    for prompt in prompts:
+        resp = talk_to_bingus(prompt)
+        if resp:
+            messages.append(resp)
+    if not messages:
+        messages = ["Sparkle On! ✨", "You're doing great!💖", "Slay! 🔥"]
+    return jsonify({"messages": messages})
 
 # --- Run the App ---
 if __name__ == '__main__':
