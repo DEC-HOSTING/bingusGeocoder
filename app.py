@@ -34,11 +34,23 @@ geolocator = Nominatim(user_agent="BubblegumGeocoder/1.0 (YourAppContact@example
 geocode = RateLimiter(geolocator.geocode, min_delay_seconds=1.1, error_wait_seconds=10)
 
 # --- Kluster AI / OpenAI Client Setup ---
-from openai import OpenAI
-ai_client = OpenAI(
-    api_key="81b97b07-aa83-408e-aab3-e55ceb81b2a4",
-    base_url="https://api.kluster.ai/v1"
-)
+# Use environment variables for credentials
+KLUSTER_API_KEY = os.getenv("KLUSTER_API_KEY")
+KLUSTER_BASE_URL = os.getenv("KLUSTER_BASE_URL") # Define the base URL variable
+
+ai_client = None
+if KLUSTER_API_KEY and KLUSTER_BASE_URL:
+    try:
+        ai_client = OpenAI(
+            api_key=KLUSTER_API_KEY,
+            base_url=KLUSTER_BASE_URL
+        )
+        print(f"DEBUG: Kluster AI Client Initialized (Base URL: {KLUSTER_BASE_URL})")
+    except Exception as e:
+        print(f"🚨 ERROR: Failed to initialize Kluster AI Client: {e}")
+else:
+    print("🚨 WARN: Kluster AI API Key or Base URL not found in environment variables. AI features disabled.")
+
 
 # --- Helper Functions ---
 
@@ -85,7 +97,7 @@ def get_coords(address, postcode, row_num):
     except Exception as e: print(f"🚨 ERROR (Row {row_num}): Geocoding exception for '{query_input}':"); traceback.print_exc(); return None, None
 
 # --- AI Interaction Function (Using Bingus with Qwen3 default) ---
-def talk_to_bingus(prompt, user_name=None, conversation_history=[], model_name="Qwen/Qwen3-235B-A22B-FP8", max_resp_tokens=4000, temperature=2.0, language='auto'):
+def talk_to_bingus(prompt, user_name=None, conversation_history=[], model_name="Qwen/Qwen3-235B-A22B-FP8", max_resp_tokens=4000, temperature=0.8, language='auto'): # Lowered default temperature
     """Sends prompt to Kluster AI (Qwen3), parses thinking/response, returns dict. Adds Spanish support if needed."""
     print(f"DEBUG: talk_to_bingus called (Model: {model_name}, Temp: {temperature}, Lang: {language}) for prompt: '{prompt[:60]}...'")
     if not ai_client:
@@ -333,8 +345,8 @@ def get_random_messages():
 # --- Run the App ---
 if __name__ == '__main__':
     print("="*50); print("✨ Starting Bingus Geocoder Flask App ✨"); print("="*50)
-    if ai_client: print(f"✅ Kluster AI Client Initialized (Endpoint: {KLUSTER_BASE_URL})")
-    else: print("❌ Kluster AI Client NOT Initialized - Check .env!")
+    if ai_client: print(f"✅ Kluster AI Client Initialized (Endpoint: {KLUSTER_BASE_URL})") # Now KLUSTER_BASE_URL is defined
+    else: print("❌ Kluster AI Client NOT Initialized - Check .env or logs!")
     is_safe_key = os.getenv('FLASK_SECRET_KEY') and os.getenv('FLASK_SECRET_KEY') != 'default_unsafe_dev_key_CHANGE_ME'
     print(f"Secret Key Loaded: {'Yes (Custom)' if is_safe_key else 'No (Using default - UNSAFE!)'}")
     print("Starting Flask development server (Debug Mode)..."); print("="*50)
