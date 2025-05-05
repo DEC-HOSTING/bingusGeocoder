@@ -284,47 +284,63 @@ async function sendChatMessage() {
     }
 }
 
-// --- Patch displayMessage for Bingus to add emotes, sound, fun facts, and quick replies ---
+// --- Patch displayMessage for Bingus to always use typewriter effect and correct styling ---
 function displayMessage(sender, message, imageUrl = null, isThinking = false, messageId = null) {
     if (!chatMessages) return;
     const messageContainer = document.createElement('div');
     messageContainer.className = `message-container flex mb-3 ${sender === 'You' ? 'justify-end' : 'justify-start'}`;
+    if (messageId) messageContainer.id = messageId;
 
     const messageDiv = document.createElement('div');
-    messageDiv.className = `message p-3 rounded-lg max-w-xs md:max-w-md lg:max-w-lg shadow ${sender === 'You' ? 'bg-bubblegum-purple text-white' : 'bg-white text-gray-800'}`;
-
-    if (messageId) {
-        messageContainer.id = messageId;
+    // Use correct classes for Bingus and user
+    if (sender === 'You') {
+        messageDiv.className = 'bg-purple-100 text-right ml-8 p-3 rounded-lg rounded-br-none shadow-sm inline-block max-w-xs sm:max-w-sm md:max-w-md break-words';
+    } else {
+        messageDiv.className = 'bg-white text-left mr-8 p-3 rounded-lg rounded-bl-none shadow-md inline-block max-w-xs sm:max-w-sm md:max-w-md break-words';
     }
 
-    const senderSpan = document.createElement('span');
-    senderSpan.className = 'font-bold block mb-1';
-    senderSpan.textContent = sender + ':';
+    const strong = document.createElement('strong');
+    strong.textContent = sender + ': ';
+    strong.className = sender === 'You' ? 'text-deep-purple' : 'text-bubblegum-pink';
+    messageDiv.appendChild(strong);
 
-    const contentDiv = document.createElement('div');
-    contentDiv.className = 'content';
-
-    if (isThinking) {
-        contentDiv.innerHTML = `<span class="thinking-indicator">✨ Bingus is thinking... ✨</span>`;
-    } else if (imageUrl) {
-        const imgElement = document.createElement('img');
-        imgElement.src = imageUrl;
-        imgElement.alt = "Bingus's masterpiece!";
-        imgElement.classList.add('generated-image');
-        contentDiv.appendChild(imgElement);
+    if (imageUrl) {
+        const img = document.createElement('img');
+        img.src = imageUrl;
+        img.alt = "Bingus's masterpiece!";
+        img.className = 'generated-image mt-2 rounded-lg max-w-full h-auto';
+        messageDiv.appendChild(img);
         if (message && message.trim() !== "") {
             const textElement = document.createElement('p');
             textElement.textContent = message;
-            contentDiv.appendChild(textElement);
+            messageDiv.appendChild(textElement);
         }
-    } else if (message) {
-        let formattedMessage = message.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-        formattedMessage = formattedMessage.replace(/\*([^*]+)\*/g, '<em>$1</em>');
-        contentDiv.innerHTML = formattedMessage;
+    } else if (sender === 'Bingus ✨') {
+        // Use typewriter effect for Bingus
+        const span = document.createElement('span');
+        messageDiv.appendChild(span);
+        messageContainer.appendChild(messageDiv);
+        chatMessages.appendChild(messageContainer);
+        chatMessages.scrollTo({ top: chatMessages.scrollHeight, behavior: 'smooth' });
+        let i = 0;
+        const typingSpeed = 15 + Math.random() * 30;
+        setTimeout(() => {
+            function type() {
+                if (i < message.length) {
+                    span.innerHTML = message.slice(0, i + 1);
+                    chatMessages.scrollTo({ top: chatMessages.scrollHeight, behavior: 'smooth' });
+                    i++;
+                    setTimeout(type, typingSpeed);
+                } else {
+                    maybeShowFunFact();
+                }
+            }
+            type();
+        }, 100);
+        return;
+    } else {
+        messageDiv.appendChild(document.createTextNode(message || ""));
     }
-
-    messageDiv.appendChild(senderSpan);
-    messageDiv.appendChild(contentDiv);
     messageContainer.appendChild(messageDiv);
     chatMessages.appendChild(messageContainer);
     chatMessages.scrollTo({ top: chatMessages.scrollHeight, behavior: 'smooth' });
@@ -351,7 +367,7 @@ function showResult(fileBlob, filename) {
     console.log("DEBUG: showResult called"); clearFakeProgress(); hideTypingIndicator();
     if (progressBarFill) { progressBarFill.style.transitionDuration = '300ms'; progressBarFill.style.width = '100%'; console.log("DEBUG: Set progress bar to 100%"); }
     setTimeout(() => { if(progressIndicator) progressIndicator.classList.add('hidden'); }, 500);
-    if(resultArea) resultArea.classList.remove('hidden'); if(errorArea) errorArea.classList.add('hidden');
+    if(resultArea) resultArea.classList.remove('hidden'); if(errorArea) resultArea.classList.add('hidden');
     const url = URL.createObjectURL(fileBlob); if(downloadLink) { downloadLink.href = url; downloadLink.download = filename || 'processed.xlsx'; }
     fetchProcessingSummary(); const aiSpeaker = 'Bingus ✨'; displayMessage(aiSpeaker, "YAS QUEEN! 👑 File processed! Download below & check report!");
     if(resultArea) resultArea.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -390,7 +406,11 @@ function showResult(fileBlob, filename) {
             showNamePrompt();
         } else {
             hideNamePrompt();
+            showGreeting();
         }
+    }
+    function showGreeting() {
+        displayMessage('Bingus ✨', `Heeey ${userName || 'gorgeous'}! Welcome! Upload a file or ask me anything! 💖`);
     }
     if (submitNameButton) {
         submitNameButton.addEventListener('click', () => {
@@ -399,7 +419,7 @@ function showResult(fileBlob, filename) {
                 userName = val;
                 localStorage.setItem('bingusUserName', userName);
                 hideNamePrompt();
-                displayMessage('Bingus ✨', `Yas, ${userName}! Let the slay begin! 💅`);
+                showGreeting();
             } else {
                 nameInput.classList.add('border-red-400');
                 setTimeout(() => nameInput.classList.remove('border-red-400'), 1000);
@@ -522,12 +542,6 @@ function showResult(fileBlob, filename) {
             setTimeout(() => { console.log("DEBUG: Timeout 1 fired. Calling showRandomPopup."); showRandomPopup(); }, 5000);
             setTimeout(() => { console.log("DEBUG: Timeout 2 fired. Calling showRandomPopup."); showRandomPopup(); }, 45000);
         });
-        // Add initial greeting - Ensure displayMessage is called correctly
-        setTimeout(() => {
-            console.log("DEBUG: Calling displayMessage for initial greeting.");
-            // Make sure 'Bingus ✨' triggers the AI path in displayMessage
-            displayMessage('Bingus ✨', "Heeey gorgeous! Welcome! Upload a file or ask me anything! 💖");
-        }, 1000); // Delay slightly to ensure everything is ready
         console.log("DEBUG: Initial setup scheduled.");
     } catch (error) {
         console.error("ERROR during initial setup:", error);
