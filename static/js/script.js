@@ -79,6 +79,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 300);
     }
 
+    // --- Typing Indicator Helpers ---
+    function showTypingIndicator() {
+        if (typingIndicator) typingIndicator.classList.remove('hidden');
+    }
+    function hideTypingIndicator() {
+        if (typingIndicator) typingIndicator.classList.add('hidden');
+    }
+
     // --- Typewriter Effect for Bingus ---
     function typewriterMessage(sender, message, callback) {
         if (!chatMessages) return;
