@@ -99,6 +99,13 @@ function showQuickReplies(options) {
     chatMessages.appendChild(quickReplyDiv);
     chatMessages.scrollTo({ top: chatMessages.scrollHeight, behavior: 'smooth' });
 }
+
+// Add this helper to remove quick replies if present
+function removeQuickReplies() {
+    const quickReplies = chatMessages?.querySelectorAll('div.flex.gap-2, div.flex.flex-wrap.gap-2');
+    if (quickReplies) quickReplies.forEach(qr => qr.remove());
+}
+
 // --- Typewriter effect: start after short delay for perceived speed ---
 function typewriterMessage(sender, message, callback) {
     if (!chatMessages) return;
@@ -581,7 +588,7 @@ function showResult(fileBlob, filename) {
         typingIndicator.innerHTML = `
             <div class="w-2 h-2 sm:w-2.5 sm:h-2.5 bg-candy-pink rounded-full animate-dot-bounce-1"></div>
             <div class="w-2 h-2 sm:w-2.5 sm:h-2.5 bg-candy-pink rounded-full animate-dot-bounce-2"></div>
-            <div class="w-2 h-2 sm:w-2.5 sm:h-2.5 bg-candy-pink rounded-full animate-dot-bounce-3"></div>
+            <div class="w-2 h-2 sm:w-2.5 bg-candy-pink rounded-full animate-dot-bounce-3"></div>
         `;
     }
     function showTypingIndicator() { showFancyThinking(); }

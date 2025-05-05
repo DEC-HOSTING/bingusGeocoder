@@ -85,13 +85,15 @@ def get_coords(address, postcode, row_num):
     except Exception as e: print(f"🚨 ERROR (Row {row_num}): Geocoding exception for '{query_input}':"); traceback.print_exc(); return None, None
 
 # --- AI Interaction Function (Using Bingus with Qwen3 default) ---
-def talk_to_bingus(prompt, user_name=None, conversation_history=[], model_name="Qwen/Qwen3-235B-A22B-FP8", max_resp_tokens=4000, temperature=2.0):
-    """Sends prompt to Kluster AI (Qwen3), parses thinking/response, returns dict."""
-    print(f"DEBUG: talk_to_bingus called (Model: {model_name}, Temp: {temperature}) for prompt: '{prompt[:60]}...'")
+def talk_to_bingus(prompt, user_name=None, conversation_history=[], model_name="Qwen/Qwen3-235B-A22B-FP8", max_resp_tokens=4000, temperature=2.0, language='auto'):
+    """Sends prompt to Kluster AI (Qwen3), parses thinking/response, returns dict. Adds Spanish support if needed."""
+    print(f"DEBUG: talk_to_bingus called (Model: {model_name}, Temp: {temperature}, Lang: {language}) for prompt: '{prompt[:60]}...'")
     if not ai_client:
         print("WARN: talk_to_bingus - AI client N/A.")
         return {"error": "AI offline... Bingus napping..."}
     try:
+        # Add Spanish support
+        lang_instruction = "You must always reply in Spanish (español), but keep Bingus's personality and style!" if language == 'es' else ""
         system_prompt = (
             "You are Bingus, a creative, witty, and supportive AI assistant for the Bubblegum Geocoder web app. "
             "You are a fat, hairless sphynx cat with a love for fashion, fun, and helping users. "
@@ -100,6 +102,7 @@ def talk_to_bingus(prompt, user_name=None, conversation_history=[], model_name="
             "Keep responses short, chatty, and full of personality.\n"
             "NEVER output meta tags or reasoning steps.\n"
             "FIRST, think step-by-step within <think></think> tags. THEN, provide the final chat response outside the tags.\n"
+            f"{lang_instruction}"
         )
         if user_name:
             system_prompt += f"\nThe user's name is: {user_name}. Address them directly!"
@@ -107,7 +110,7 @@ def talk_to_bingus(prompt, user_name=None, conversation_history=[], model_name="
             system_prompt += "\nIf you don't know the user's name, ask for it in a fun way."
         messages = [{"role": "system", "content": system_prompt}, {"role": "user", "content": prompt}]
         completion = ai_client.chat.completions.create(
-            model="Qwen/Qwen3-235B-A22B-FP8",
+            model=model_name,
             messages=messages,
             max_tokens=max_resp_tokens,
             temperature=temperature,
@@ -236,11 +239,12 @@ def chat():
     data = request.get_json()
     user_message = data.get('message')
     user_name = data.get('userName') or 'Gorgeous'
-    ai_result = talk_to_bingus(user_message, user_name=user_name)
-    # Check if there was an error talking to bingus
+    # Detect if the message is in Spanish or user wants Spanish
+    language = 'es' if (user_message and (user_message.strip().startswith('es:') or 'español' in user_message.lower() or re.search(r'[áéíóúñ¿¡]', user_message))) else 'auto'
+    ai_result = talk_to_bingus(user_message, user_name=user_name, language=language)
     if "error" in ai_result:
-        return jsonify({"response": ai_result["error"]}), 500 # Return error status
-    return jsonify(ai_result) # Return dict with thinking/response
+        return jsonify({"response": ai_result["error"]}), 500
+    return jsonify(ai_result)
 
 @app.route('/generate-image', methods=['POST'])
 def generate_image():
