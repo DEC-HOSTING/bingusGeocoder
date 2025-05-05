@@ -307,9 +307,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (submitButton) submitButton.disabled = false;
             if (submitButton) submitButton.textContent = '✨ Process! ✨';
             setTimeout(() => {
-                if (!resultArea || resultArea.classList.contains('hidden')) {
-                    hideElement(progressIndicator);
-                }
+                hideElement(progressIndicator);
             }, 1000);
         }
     }
@@ -320,21 +318,33 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!response.ok) throw new Error('Failed to fetch summary');
             const summary = await response.json();
 
-            if (summary && Object.keys(summary).length > 0 && summaryPopupContent) {
+            console.log("DEBUG: Fetched processing summary:", summary); // Log summary for debugging
+
+            // Check if summary data exists and the necessary elements are present
+            if (summary && Object.keys(summary).length > 0 && summaryPopupOverlay && summaryPopupContent && summaryPopupModal) {
+                // Populate the modal content with the summary data
                 summaryPopupContent.innerHTML = `
-                    <p><strong>File:</strong> ${summary.filename || 'N/A'}</p>
-                    <p><strong>Total Rows Processed:</strong> ${summary.total_rows ?? 'N/A'}</p>
-                    <p class="text-green-600"><strong>Successful:</strong> ${summary.success_count ?? 'N/A'}</p>
-                    <p class="text-red-600"><strong>Failed:</strong> ${summary.fail_count ?? 'N/A'}</p>
-                    <p class="text-purple-600"><strong>AI Assist Attempts:</strong> ${summary.ai_assist_attempt ?? 'N/A'}</p>
+                    <h3 class="text-lg font-semibold mb-3 text-bubblegum-pink">Processing Summary</h3>
+                    <p class="mb-1"><strong>File:</strong> ${summary.filename || 'N/A'}</p>
+                    <p class="mb-1"><strong>Total Rows Processed:</strong> ${summary.total_rows ?? 'N/A'}</p>
+                    <p class="text-green-600 mb-1"><strong>Successful:</strong> ${summary.success_count ?? 'N/A'}</p>
+                    <p class="text-red-600 mb-1"><strong>Failed:</strong> ${summary.fail_count ?? 'N/A'}</p>
+                    <p class="text-purple-600 mb-1"><strong>AI Assist Attempts:</strong> ${summary.ai_assist_attempt ?? 'N/A'}</p>
                     <p class="text-blue-600"><strong>AI Assist Successes:</strong> ${summary.ai_assist_success ?? 'N/A'}</p>
                 `;
+
+                // Show the overlay and the modal
                 showOpacityElement(summaryPopupOverlay);
+                // Ensure the modal itself is also made visible if it's controlled separately
+                showOpacityElement(summaryPopupModal);
+
             } else {
-                console.log("No summary data received or popup content element missing.");
+                console.log("No summary data received or popup elements missing.");
             }
         } catch (error) {
-            console.error('Error fetching summary:', error);
+            console.error('Error fetching or displaying summary:', error);
+            // Optionally inform the user that the summary couldn't be displayed
+            // displayMessage('Bingus ✨', '😿 Oops! Couldn\'t show the summary this time.');
         }
     }
 
