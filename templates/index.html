@@ -32,6 +32,22 @@
         </div>
     </div>
 
+    <!-- NEW: Fancy Bingus Thinking Pop-in Modal -->
+    <div id="bingus-thinking-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 backdrop-blur-sm hidden opacity-0 transition-opacity duration-300 ease-out">
+      <div class="relative bg-gradient-to-br from-white via-soft-pink to-candy-pink rounded-3xl shadow-glow p-8 max-w-md w-full flex flex-col items-center animate-scale-in">
+        <img src="/static/images/kitten_icon.png" alt="Bingus is thinking" class="w-24 h-24 mb-4 animate-bounce-in object-contain drop-shadow-lg">
+        <div class="flex items-center gap-2 mb-2">
+          <span class="text-bubblegum-pink text-2xl animate-spin-slow">🧠</span>
+          <span class="text-bubblegum-pink font-bold text-lg animate-pulse">Bingus is thinking...</span>
+          <span class="fancy-dots text-bubblegum-pink text-xl">💭💭</span>
+        </div>
+        <div id="bingus-thinking-content" class="text-deep-purple text-base text-center italic mt-2 min-h-[2.5rem]">Bingus is pondering...</div>
+        <div class="absolute top-2 right-4">
+          <span class="inline-block animate-pulse text-bubblegum-pink text-2xl">✨</span>
+        </div>
+      </div>
+    </div>
+
     <div class="bg-white bg-opacity-90 backdrop-blur-lg rounded-2xl md:rounded-3xl shadow-glow p-3 sm:p-4 md:p-8 w-full max-w-7xl flex flex-col md:flex-row gap-4 md:gap-8 lg:gap-12 pt-6 sm:pt-4 md:pt-8">
 
         <div class="flex-1 w-full md:max-w-md lg:max-w-lg mx-auto">
@@ -128,7 +144,7 @@
         <div id="summary-popup-modal" class="bg-gradient-to-br from-white via-emerald-50 to-green-100 p-6 rounded-3xl shadow-glow max-w-lg w-full text-left relative transform scale-95 opacity-0 transition-all duration-300 ease-out" style="cursor: default;" onclick="event.stopPropagation();">
             <button id="close-summary-popup-button-x" class="absolute top-2 right-3 text-gray-500 hover:text-red-500 text-3xl font-bold transition leading-none p-1" aria-label="Close summary pop-up">&times;</button>
             <h3 class="text-2xl font-bold text-center mb-4 text-emerald-700 flex items-center justify-center gap-2">
-                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-7 h-7 text-emerald-600"> <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /> </svg>
+                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-7 h-7 text-emerald-600"> <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1-18 0Z" /> </svg>
                 Processing Report!
             </h3>
             <div id="summary-popup-content" class="text-gray-700 space-y-2 text-sm sm:text-base">
