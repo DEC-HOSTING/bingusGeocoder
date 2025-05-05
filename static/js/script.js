@@ -211,83 +211,73 @@ function removeImageLoadingIndicator() {
 // --- Enhanced Chat Message Sending ---
 async function sendChatMessage() {
     const messageText = chatInput.value.trim();
-    const userName = localStorage.getItem('bingusUserName') || 'Gorgeous'; // Get username
-
+    const userName = localStorage.getItem('bingusUserName') || 'Gorgeous';
     if (!messageText) return;
-
     displayMessage('You', messageText);
     chatInput.value = '';
-    removeQuickReplies(); // Remove any existing quick replies
+    removeQuickReplies();
 
     // --- Image Generation Request ---
     if (messageText.toLowerCase() === 'draw bingus!') {
-        showImageLoadingIndicator(); // Show loading indicator
+        showImageLoadingIndicator();
         try {
             const response = await fetch('/generate-image', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userName: userName }) // Send username
+                body: JSON.stringify({ userName: userName })
             });
-            removeImageLoadingIndicator(); // Remove indicator on response
-
+            removeImageLoadingIndicator();
             const data = await response.json();
-
             if (response.ok && data.image_url) {
-                // Display the image and Bingus's comment
                 displayMessage('Bingus', data.response?.response || "Look what I made!", data.image_url);
             } else {
-                // Display Bingus's error message from the backend
                 const errorMessage = data.response?.response || data.error || "Oops, my paws slipped!";
                 displayMessage('Bingus', `😿 ${errorMessage}`);
             }
         } catch (error) {
             console.error('Error generating image:', error);
-            removeImageLoadingIndicator(); // Remove indicator on error
+            removeImageLoadingIndicator();
             displayMessage('Bingus', '😿 Oh dear, the connection fizzled! Could not generate image.');
         }
-        return; // Stop further processing for image request
+        return;
     }
 
     // --- Standard Chat Request ---
-    const thinkingId = `thinking-${Date.now()}`;
-    displayMessage('Bingus', '', null, true, thinkingId); // Display thinking indicator
-
     try {
+        // Show a temporary typing indicator while waiting for the response
+        showTypingIndicator();
         const response = await fetch('/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message: messageText, userName: userName }) // Send username
+            body: JSON.stringify({ message: messageText, userName: userName })
         });
-
-        const thinkingIndicator = document.getElementById(thinkingId);
-        if (thinkingIndicator) thinkingIndicator.remove();
-
+        hideTypingIndicator();
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
             const errorMsg = errorData.response || `Uh oh! Server hiccup (${response.status})`;
-            console.error('Chat API Error:', response.status, errorData);
             displayMessage('Bingus', `😿 ${errorMsg}`);
             return;
         }
-
         const data = await response.json();
-
-        if (data.response) {
-            displayMessage('Bingus', data.response);
-            if (data.thinking) {
-                console.log("Bingus Thinking:", data.thinking);
-            }
-        } else if (data.error) {
-            displayMessage('Bingus', `😿 ${data.error}`);
-        } else {
-            displayMessage('Bingus', 'Bingus seems lost for words...');
+        // Show Bingus's thinking process if present
+        if (data.thinking) {
+            displayThinkingBubble(data.thinking);
+            // Wait a short time (or until user clicks, if you want) before showing the final response
+            await new Promise(resolve => setTimeout(resolve, 1200 + Math.min(2000, data.thinking.length * 15)));
+            hideThinkingBubble();
         }
-
+        // Show Bingus's final response with typewriter effect
+        if (data.response) {
+            displayMessage('Bingus ✨', data.response);
+        } else if (data.error) {
+            displayMessage('Bingus ✨', `😿 ${data.error}`);
+        } else {
+            displayMessage('Bingus ✨', 'Bingus seems lost for words...');
+        }
     } catch (error) {
-        console.error('Error sending message:', error);
-        const thinkingIndicator = document.getElementById(thinkingId);
-        if (thinkingIndicator) thinkingIndicator.remove();
-        displayMessage('Bingus', '😿 Yikes! Connection trouble. Check the console, maybe?');
+        hideTypingIndicator();
+        hideThinkingBubble();
+        displayMessage('Bingus ✨', '😿 Yikes! Connection trouble. Check the console, maybe?');
     }
 }
 
