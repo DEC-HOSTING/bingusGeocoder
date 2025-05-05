@@ -349,8 +349,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function handleNamePrompt() {
-        if (!userName && namePromptOverlay) {
+        console.log("DEBUG: handleNamePrompt called. userName:", userName); // Add log
+        if (!userName && namePromptOverlay && namePromptModal) { // Check modal elements too
+            console.log("DEBUG: userName not found, showing name prompt."); // Add log
+            // Ensure overlay and modal are shown
             showOpacityElement(namePromptOverlay);
+            showOpacityElement(namePromptModal); // Explicitly show modal too
+        } else if (userName) {
+            console.log("DEBUG: userName found:", userName); // Add log
+        } else {
+            console.log("DEBUG: Name prompt elements not found?"); // Add log
         }
 
         if (submitNameButton && nameInput) {
@@ -359,7 +367,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (enteredName) {
                     userName = enteredName;
                     localStorage.setItem('bingusUserName', userName);
+                    // Hide both overlay and modal
                     hideOpacityElement(namePromptOverlay);
+                    hideOpacityElement(namePromptModal);
                     displayMessage('Bingus ✨', `Hey ${userName}! So fabulous to meet you! Ask me anything or drop your file! 💖`);
                 } else {
                     nameInput.placeholder = "Don't be shy, enter a name!";
